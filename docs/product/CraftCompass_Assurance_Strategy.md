@@ -16,7 +16,7 @@
 **Working title:** CraftCompass  
 **Document status:** Architecture and MVP proposal  
 **Last reviewed:** 2026-07-26  
-**Relationship to the original brief:** Companion document; both files should be placed in the repository under `docs/product/`.
+**Relationship to the original brief:** Companion document; both files should be placed in the repository under ``.
 
 ---
 
