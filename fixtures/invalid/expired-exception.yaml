@@ -1,0 +1,43 @@
+schema_version: 1
+kind: project_rule
+id: RULE-EXPIRED-EXCEPTION
+title: Rule with an expired exception
+status: active
+level: mandatory
+statement: New domain code must not depend on persistence.
+principle_refs:
+  - ARCH-DEPENDENCY-DIRECTION-001
+evidence:
+  - id: EV-EXPIRED-RULE
+    type: source_file
+    description: Representative dependency evidence.
+    location: src/main/java
+risk: Persistence details can spread into business policy.
+confidence: 0.8
+scope:
+  change_types:
+    - new_code
+  include:
+    - src/main/java/**
+  exclude: []
+  existing_violations: baseline
+enforcement:
+  - mechanism: deterministic_check
+    blocking: true
+    description: Check package dependency direction.
+exceptions:
+  allowed: true
+  reason_required: true
+  owner_required: true
+  expiration_required: true
+  active_exceptions:
+    - id: EXCEPTION-EXPIRED-001
+      reason: This fixture deliberately expired.
+      owner: fixture-owner
+      scope: One legacy package.
+      expires_on: 2020-01-01
+      evidence:
+        - id: EV-EXPIRED-DECISION
+          type: human_decision
+          description: A historical exception decision.
+          location: docs/expired-decision.md

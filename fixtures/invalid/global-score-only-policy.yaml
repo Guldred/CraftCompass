@@ -1,0 +1,38 @@
+schema_version: 1
+kind: assurance_profile
+id: ASSURANCE-PROFILE-GLOBAL-SCORE
+project_ref: PROJECT-ORDER-SERVICE
+project_criticality: medium
+agent_generated_code_share: high
+review_policy:
+  default_level: 1
+  always_review:
+    - Business intent.
+  selective_review: []
+testing_policy:
+  unit_tests_required: true
+  acceptance_tests_required_for: []
+  integration_tests_required_for: []
+architecture_policy:
+  checks_required: true
+  baseline_existing_violations: true
+  fail_on_new_violations: true
+mutation_policy:
+  strategy: global_score
+  changed_business_behavior:
+    new_unexplained_survivors: forbidden
+  baseline:
+    existing_survivors: classify_and_track
+    regression: forbidden
+  score:
+    report: true
+    decision_role: context_only
+security_policy:
+  dependency_scanning_required: true
+  human_review_required_for: []
+exception_policy:
+  allowed: true
+  reason_required: true
+  owner_required: true
+  expiration_required: true
+  active_exceptions: []

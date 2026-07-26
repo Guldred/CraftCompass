@@ -1,0 +1,49 @@
+schema_version: 1
+kind: practice_statement
+id: CURRENT-AI-REVIEW-001
+maturity: current_position
+lifecycle: active
+title: Agent-written code can be assessed through measurable constraints
+author: Robert C. Martin
+statement: >
+  For agent-written implementation code, confidence may rely heavily on
+  measurable properties and executable constraints rather than exhaustive
+  line-by-line review.
+rationale: >
+  Agent code-generation throughput can exceed the rate at which humans can
+  inspect every implementation line.
+warning_signals:
+  - Reduced review is proposed before automated assurance is reliable.
+  - Aggregate metrics replace review of intent, risk, or exceptions.
+positive_signals:
+  - Tests, dependencies, complexity, module shape, and mutation outcomes are measured.
+  - Humans retain attention on intent, architecture, security, and exceptions.
+scope:
+  - Agent-generated implementation code.
+  - Projects with reliable and independently evaluated automated assurance.
+prerequisites:
+  - Explicit specifications and acceptance criteria.
+  - Stable quality gates and evidence retention.
+supporting_mechanisms:
+  - Test coverage interpreted as execution evidence.
+  - Dependency and complexity analysis.
+  - Mutation testing.
+  - Risk-based review.
+limitations:
+  - The position is recent and attributable rather than a timeless principle.
+  - Metrics do not prove that requirements or security are complete.
+must_not_be_interpreted_as:
+  - Human judgment is obsolete.
+  - Every project should stop code review.
+  - A high mutation score proves correctness.
+source_references:
+  - id: SRC-MARTIN-X-AI-REVIEW-2026
+    type: social_post
+    title: Statement on reviewing agent-written code
+    author: Robert C. Martin
+    url: https://x.com/unclebobmartin/status/2044114698451476492
+    retrieved_on: 2026-07-26
+product_interpretation: >
+  CraftCompass uses Review Levels 0 through 2 in the initial MVP and derives
+  review depth from risk and assurance maturity. It does not enable constraint-driven
+  autonomy or make this position a blocking foundational rule.

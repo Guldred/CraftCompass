@@ -1,0 +1,50 @@
+schema_version: 1
+kind: craftsmanship_principle
+id: ARCH-DEPENDENCY-DIRECTION-001
+maturity: foundational
+lifecycle: active
+title: Direct dependencies toward stable policy
+category: architecture
+statement: >
+  Source-code dependencies should point toward the policy that is more stable
+  and less dependent on delivery or persistence details.
+rationale: >
+  Keeping business policy independent from replaceable technical mechanisms
+  limits the impact of infrastructure changes and supports isolated reasoning.
+warning_signals:
+  - Business behavior imports web, persistence, or vendor-specific types.
+  - A technical adapter determines application policy.
+positive_signals:
+  - Business policy can be exercised without starting infrastructure.
+  - Technical mechanisms depend on stable policy-facing contracts.
+counter_indications:
+  - A deliberately simple tool may not benefit from additional boundary types.
+  - A migration may temporarily baseline existing dependency violations.
+applicability:
+  contexts:
+    - Systems with business policy expected to outlive technical integrations.
+    - Modules where infrastructure changes have a wide impact radius.
+  preconditions:
+    - The proposed boundary represents a real reason to change.
+  exclusions:
+    - Generated integration code whose generator and output are independently verified.
+enforcement_options:
+  - mechanism: deterministic_check
+    suitability: strong
+    description: Check forbidden package or module dependency directions.
+  - mechanism: human_review
+    suitability: contextual
+    description: Confirm that a proposed boundary reflects project intent.
+limitations:
+  - Dependency direction alone does not prove that module responsibilities are appropriate.
+  - Static dependencies may omit runtime relationships created through configuration or proxies.
+source_references:
+  - id: SRC-CLEAN-ARCHITECTURE-DEPENDENCIES
+    type: book
+    title: Clean Architecture
+    author: Robert C. Martin
+    retrieved_on: 2026-07-26
+    locator: Dependency Rule
+product_interpretation: >
+  CraftCompass evaluates this principle against project evidence and
+  counter-indications; it does not require one architecture style.

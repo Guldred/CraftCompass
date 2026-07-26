@@ -1,0 +1,31 @@
+schema_version: 1
+kind: assurance_plan
+id: ASSURANCE-PLAN-LEVEL-3
+change_id: INVALID-LEVEL-3
+project_ref: PROJECT-ORDER-SERVICE
+risk:
+  overall: low
+  likelihood: low
+  impact: low
+  confidence: 0.8
+  factors:
+    - This fixture attempts to enable deferred autonomy.
+  evidence:
+    - id: EV-LEVEL-3
+      type: git_change
+      description: Representative low-risk change.
+      location: git:INVALID-LEVEL-3
+impacted_flows: []
+required_gates:
+  - id: GATE-LEVEL-3-COMPILE
+    type: compilation
+    blocking: true
+    reason: Compilation remains required.
+human_review:
+  level: 3
+  targets:
+    - Exceptions only.
+  rationale:
+    - This deliberately requests a deferred review level.
+rationale:
+  - Review Level 3 must not be representable in schema version 1.

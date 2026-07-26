@@ -1,0 +1,66 @@
+schema_version: 1
+kind: project_rule
+id: RULE-DOMAIN-DEPENDENCY-001
+title: New domain code must not depend on Spring or persistence
+status: active
+level: mandatory
+statement: >
+  New and modified code in the order domain must not introduce dependencies on
+  Spring or persistence APIs.
+principle_refs:
+  - ARCH-DEPENDENCY-DIRECTION-001
+evidence:
+  - id: EV-SOURCE-LAYOUT
+    type: source_file
+    description: Domain and adapter packages are already separated.
+    location: src/main/java/example/order
+  - id: EV-ADR-MIGRATION
+    type: human_decision
+    description: The team accepted baseline-and-ratcheting migration.
+    location: docs/decisions/architecture-migration.md
+risk: >
+  New technical dependencies would spread infrastructure concerns into business
+  policy and increase future change impact.
+confidence: 0.9
+scope:
+  change_types:
+    - new_code
+    - modified_code
+  include:
+    - src/main/java/example/order/domain/**
+  exclude:
+    - target/generated-sources/**
+  existing_violations: baseline
+enforcement:
+  - mechanism: deterministic_check
+    blocking: true
+    description: Check forbidden domain package dependencies.
+    configuration:
+      boundary: domain-to-framework
+  - mechanism: ai_review
+    blocking: false
+    description: Explain indirect or configuration-driven dependency evidence.
+migration:
+  approach: baseline_and_ratcheting
+  rationale: Existing persistence annotations are known debt and cannot be removed in this slice.
+  steps:
+    - Record existing violations as a baseline.
+    - Prevent new violations in changed code.
+    - Reassess the baseline after the domain model migration decision.
+  target_date: 2027-12-31
+exceptions:
+  allowed: true
+  reason_required: true
+  owner_required: true
+  expiration_required: true
+  active_exceptions:
+    - id: EXCEPTION-LEGACY-JPA-001
+      reason: Existing annotated types are retained during incremental migration.
+      owner: order-platform-team
+      scope: Existing persistence annotations only; no new annotated domain types.
+      expires_on: 2027-12-31
+      evidence:
+        - id: EV-ADR-MIGRATION
+          type: human_decision
+          description: The team accepted baseline-and-ratcheting migration.
+          location: docs/decisions/architecture-migration.md

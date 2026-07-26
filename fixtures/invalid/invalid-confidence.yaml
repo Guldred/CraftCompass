@@ -1,0 +1,24 @@
+schema_version: 1
+kind: project_profile
+id: PROJECT-INVALID-CONFIDENCE
+name: invalid-confidence
+technologies:
+  - category: language
+    name: Java
+modules:
+  - name: application
+    path: src/main/java
+    responsibilities:
+      - Application behavior.
+observations:
+  - id: OBS-INVALID-CONFIDENCE
+    type: interpretation
+    statement: This confidence is outside the supported range.
+    confidence: 1.01
+    evidence:
+      - id: EV-INVALID-CONFIDENCE
+        type: source_file
+        description: Representative project evidence.
+        location: src/main/java
+constraints: []
+uncertainties: []

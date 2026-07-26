@@ -1,0 +1,51 @@
+schema_version: 1
+kind: craftsmanship_principle
+id: ASSURANCE-SEMANTIC-STABILITY-001
+maturity: foundational
+lifecycle: active
+title: Tests should detect relevant semantic change
+category: assurance
+statement: >
+  Tests should fail when relevant production behavior is changed in a way that
+  violates the intended semantics.
+rationale: >
+  Executing a line or branch does not establish that the test suite meaningfully
+  constrains the behavior needed for safe change.
+warning_signals:
+  - Changed business behavior contains a surviving mutant with no explanation.
+  - Coverage is used as the only claim that assertions are effective.
+positive_signals:
+  - Relevant behavior changes cause focused tests to fail.
+  - Surviving mutants are resolved or explicitly classified with evidence.
+counter_indications:
+  - An equivalent-mutant candidate may not change observable behavior.
+  - Generated glue may be excluded when generation is independently verified.
+applicability:
+  contexts:
+    - Changed business behavior protected by automated tests.
+    - Refactoring that relies on the test suite as a safety net.
+  preconditions:
+    - Mutation execution is feasible for the selected scope.
+  exclusions:
+    - Requirements that have not yet been identified or specified.
+enforcement_options:
+  - mechanism: deterministic_check
+    suitability: strong
+    description: Normalize mutation outcomes and identify new survivors.
+  - mechanism: human_review
+    suitability: strong
+    description: Review survivor classifications and accepted risks.
+limitations:
+  - Mutation testing samples fault classes and does not prove complete correctness.
+  - Mutation results do not establish requirement, security, architecture, or production completeness.
+source_references:
+  - id: SRC-MARTIN-MUTATION-2016
+    type: article
+    title: Mutation Testing
+    author: Robert C. Martin
+    url: https://blog.cleancoder.com/uncle-bob/2016/06/10/MutationTesting.html
+    published_on: 2016-06-10
+    retrieved_on: 2026-07-26
+product_interpretation: >
+  CraftCompass treats mutation outcomes as evidence about test strength. Its
+  primary policy is no new unexplained surviving mutants in changed business behavior.

@@ -1,0 +1,33 @@
+schema_version: 1
+kind: project_rule
+id: RULE-INVALID-LEVEL
+title: Invalid rule level
+status: active
+level: universal
+statement: This deliberately uses a rule level that CraftCompass does not support.
+principle_refs:
+  - ARCH-DEPENDENCY-DIRECTION-001
+evidence:
+  - id: EV-INVALID-RULE
+    type: source_file
+    description: Representative rule evidence.
+    location: src/main/java
+risk: The invalid level could turn contextual guidance into dogma.
+confidence: 0.8
+scope:
+  change_types:
+    - new_code
+  include:
+    - src/**
+  exclude: []
+  existing_violations: baseline
+enforcement:
+  - mechanism: documentation
+    blocking: false
+    description: Explain the rule.
+exceptions:
+  allowed: false
+  reason_required: true
+  owner_required: true
+  expiration_required: true
+  active_exceptions: []

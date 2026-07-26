@@ -1,0 +1,26 @@
+schema_version: 1
+kind: practice_statement
+id: CURRENT-INVALID-FOUNDATIONAL
+maturity: foundational
+lifecycle: active
+title: Current position incorrectly classified as foundational
+author: Example Author
+statement: A recent position should not silently become timeless doctrine.
+rationale: This fixture verifies the knowledge-category boundary.
+warning_signals: []
+positive_signals: []
+scope:
+  - Agent-generated code.
+prerequisites: []
+supporting_mechanisms: []
+limitations:
+  - This is a deliberately invalid fixture.
+must_not_be_interpreted_as:
+  - A foundational principle.
+source_references:
+  - id: SRC-INVALID-CURRENT-POSITION
+    type: social_post
+    title: Example current position
+    url: https://example.com/current-position
+    retrieved_on: 2026-07-26
+product_interpretation: CraftCompass must reject this maturity assignment.

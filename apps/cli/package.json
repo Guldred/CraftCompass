@@ -1,0 +1,14 @@
+{
+  "name": "@craftcompass/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CraftCompass command-line adapter.",
+  "type": "module",
+  "bin": {
+    "craft": "./bin/craft.mjs"
+  },
+  "dependencies": {
+    "@craftcompass/domain": "workspace:*",
+    "yaml": "2.9.0"
+  }
+}

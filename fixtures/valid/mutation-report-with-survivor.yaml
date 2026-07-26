@@ -1,0 +1,63 @@
+schema_version: 1
+kind: mutation_report
+id: MUTATION-REPORT-FEATURE-482
+provider: example-mutation-provider
+scope:
+  primary_targets:
+    - example.order.domain.OrderCancellationService
+    - example.order.domain.CancellationPolicy
+  supporting_targets:
+    - example.order.domain.RefundDecision
+  relevant_tests:
+    - OrderCancellationServiceTest
+    - OrderCancellationAcceptanceTest
+  confidence: 0.84
+  limitations:
+    - Spring proxy relationships may be incomplete.
+    - Runtime message consumers are outside the static scope.
+totals:
+  generated: 50
+  killed: 45
+  survived: 1
+  no_coverage: 2
+  timed_out: 1
+  errors: 1
+survivors:
+  - id: MUTANT-CANCEL-140
+    operator: CONDITIONALS_BOUNDARY
+    description: Changed the cancellation deadline comparison.
+    location:
+      file: src/main/java/example/order/domain/CancellationPolicy.java
+      symbol: mayCancel
+      line: 42
+    classification: test_gap
+    classification_status: candidate
+    explanation: A deadline-boundary scenario appears to be missing and requires review.
+    evidence:
+      - id: EV-PIT-MUTANT-140
+        type: test_result
+        description: No selected test failed for this mutation.
+        location: artifacts/mutations/MUTANT-CANCEL-140.xml
+baseline_comparison:
+  baseline_ref: MUTATION-BASELINE-ORDER-DOMAIN
+  new_survivors: 1
+  new_survivor_ids:
+    - MUTANT-CANCEL-140
+  resolved_survivors: 0
+  resolved_survivor_ids: []
+evidence:
+  - id: ASSURANCE-EVIDENCE-MUTATION-482
+    type: mutation_run
+    status: conditional
+    summary: The targeted run has one candidate test-gap survivor.
+    captured_at: 2026-07-26T12:00:00Z
+    references:
+      - id: EV-PIT-REPORT-482
+        type: test_result
+        description: Normalized mutation report for FEATURE-482.
+        location: artifacts/mutations/FEATURE-482.xml
+    execution:
+      tool: example-mutation-provider
+      version: 1.0.0
+      invocation: provider-defined targeted mutation run
+      exit_code: 0

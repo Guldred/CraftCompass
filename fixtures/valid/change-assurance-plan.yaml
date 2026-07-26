@@ -1,0 +1,67 @@
+schema_version: 1
+kind: assurance_plan
+id: ASSURANCE-PLAN-ORDER-CANCELLATION
+change_id: FEATURE-482
+project_ref: PROJECT-ORDER-SERVICE
+risk:
+  overall: high
+  likelihood: medium
+  impact: high
+  confidence: 0.86
+  factors:
+    - The change alters order cancellation business behavior.
+    - Refund initialization is an impacted flow.
+  evidence:
+    - id: EV-CHANGE-482
+      type: git_change
+      description: The change modifies cancellation policy and refund decisions.
+      location: git:FEATURE-482
+impacted_flows:
+  - Customer cancellation.
+  - Recurring-order termination.
+  - Refund initialization.
+required_gates:
+  - id: GATE-COMPILE
+    type: compilation
+    blocking: true
+    reason: The change must compile before behavioral evidence is evaluated.
+  - id: GATE-UNIT
+    type: unit_tests
+    blocking: true
+    reason: Changed cancellation behavior requires focused unit tests.
+  - id: GATE-ACCEPTANCE
+    type: acceptance_tests
+    blocking: true
+    reason: Externally visible cancellation scenarios must remain satisfied.
+  - id: GATE-ARCHITECTURE
+    type: architecture_tests
+    blocking: true
+    reason: The change must not add domain-to-infrastructure dependencies.
+  - id: GATE-MUTATION
+    type: mutation_tests
+    blocking: true
+    reason: New unexplained survivors in changed business behavior are forbidden.
+mutation_scope:
+  primary_targets:
+    - example.order.domain.OrderCancellationService
+    - example.order.domain.CancellationPolicy
+  supporting_targets:
+    - example.order.domain.RefundDecision
+  relevant_tests:
+    - OrderCancellationServiceTest
+    - OrderCancellationAcceptanceTest
+  confidence: 0.84
+  limitations:
+    - Spring proxy relationships may be incomplete.
+    - Runtime message consumers are outside the static scope.
+human_review:
+  level: 1
+  targets:
+    - Business intent and acceptance criteria.
+    - Refund policy.
+    - Mutation survivors and any gate exceptions.
+  rationale:
+    - The behavior is high impact and the project has not earned reduced implementation review.
+rationale:
+  - Automated gates should run before complete relevant human review.
+  - Mutation evidence complements but does not replace acceptance and architecture evidence.

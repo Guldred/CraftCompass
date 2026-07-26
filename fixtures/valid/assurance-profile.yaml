@@ -1,0 +1,48 @@
+schema_version: 1
+kind: assurance_profile
+id: ASSURANCE-PROFILE-ORDER-SERVICE
+project_ref: PROJECT-ORDER-SERVICE
+project_criticality: medium
+agent_generated_code_share: high
+review_policy:
+  default_level: 1
+  always_review:
+    - Business intent and acceptance criteria.
+    - Public API and authorization changes.
+    - Architecture decisions and quality-gate exceptions.
+  selective_review:
+    - Internal implementation code.
+    - Unit-test implementation.
+testing_policy:
+  unit_tests_required: true
+  acceptance_tests_required_for:
+    - Externally observable behavior.
+    - Business rules.
+  integration_tests_required_for:
+    - Persistence.
+    - External services.
+architecture_policy:
+  checks_required: true
+  baseline_existing_violations: true
+  fail_on_new_violations: true
+mutation_policy:
+  strategy: no_new_unexplained_survivors
+  changed_business_behavior:
+    new_unexplained_survivors: forbidden
+  baseline:
+    existing_survivors: classify_and_track
+    regression: forbidden
+  score:
+    report: true
+    decision_role: context_only
+security_policy:
+  dependency_scanning_required: true
+  human_review_required_for:
+    - Authentication and authorization changes.
+    - Sensitive data flows.
+exception_policy:
+  allowed: true
+  reason_required: true
+  owner_required: true
+  expiration_required: true
+  active_exceptions: []

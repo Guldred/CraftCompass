@@ -1,0 +1,109 @@
+schema_version: 1
+kind: project_profile
+id: PROJECT-ORDER-SERVICE
+name: order-service
+technologies:
+  - category: language
+    name: Java
+    version: '21'
+  - category: framework
+    name: Spring Boot
+    version: 3.x
+  - category: build_tool
+    name: Maven
+  - category: test_framework
+    name: JUnit
+    version: '5'
+modules:
+  - name: order-domain
+    path: src/main/java/example/order/domain
+    responsibilities:
+      - Order policy and state transitions.
+  - name: order-adapters
+    path: src/main/java/example/order/adapters
+    responsibilities:
+      - Persistence and HTTP integration.
+observations:
+  - id: OBS-JAVA-MAVEN
+    type: fact
+    statement: The build declares Java 21 and Maven.
+    confidence: 1
+    evidence:
+      - id: EV-POM-JAVA
+        type: build_configuration
+        description: Maven compiler release is 21.
+        location: pom.xml
+  - id: OBS-LAYERED-PACKAGES
+    type: interpretation
+    statement: Package dependencies suggest a domain and adapter boundary.
+    confidence: 0.78
+    evidence:
+      - id: EV-SOURCE-LAYOUT
+        type: source_file
+        description: Domain and adapter packages are separated.
+        location: src/main/java/example/order
+  - id: OBS-BOUNDARY-INTENT
+    type: assumption
+    statement: The package boundary is intended to protect business policy.
+    confidence: 0.55
+    evidence:
+      - id: EV-ARCH-NOTE
+        type: project_documentation
+        description: Architecture notes mention isolated order policy.
+        location: docs/architecture.md
+  - id: OBS-SPRING-PROXY-GAP
+    type: uncertainty
+    statement: Runtime proxy relationships may not be visible statically.
+    confidence: 0.7
+    evidence:
+      - id: EV-SPRING-CONFIG
+        type: source_file
+        description: Spring annotations create runtime behavior.
+        location: src/main/java/example/order
+  - id: OBS-INCREMENTAL-MIGRATION
+    type: decision
+    statement: Existing dependency violations will be migrated incrementally.
+    confidence: 1
+    evidence:
+      - id: EV-ADR-MIGRATION
+        type: human_decision
+        description: The team accepted baseline-and-ratcheting migration.
+        location: docs/decisions/architecture-migration.md
+  - id: OBS-DOMAIN-JPA-DEBT
+    type: known_debt
+    statement: Some domain types still carry persistence annotations.
+    confidence: 0.95
+    evidence:
+      - id: EV-JPA-ANNOTATIONS
+        type: source_file
+        description: Persistence annotations occur in the domain package.
+        location: src/main/java/example/order/domain
+constraints:
+  - id: CONSTRAINT-BACKWARD-COMPATIBILITY
+    category: business
+    statement: Public order APIs must remain backward compatible.
+    status: confirmed
+    evidence:
+      - id: EV-API-COMPATIBILITY
+        type: external_requirement
+        description: Existing consumers require compatible contracts.
+        location: docs/contracts/order-api.yaml
+  - id: CONSTRAINT-INCREMENTAL-CHANGE
+    category: migration
+    statement: Architecture debt must be reduced incrementally.
+    status: confirmed
+    evidence:
+      - id: EV-ADR-MIGRATION
+        type: human_decision
+        description: The team accepted baseline-and-ratcheting migration.
+        location: docs/decisions/architecture-migration.md
+uncertainties:
+  - id: UNCERTAINTY-JPA-BOUNDARY
+    statement: It is unclear whether persistence annotations in domain types are transitional.
+    impact: Immediate prohibition could conflict with an accepted short-term model.
+    resolution_required: true
+    evidence:
+      - id: EV-JPA-ANNOTATIONS
+        type: source_file
+        description: Persistence annotations occur in the domain package.
+        location: src/main/java/example/order/domain

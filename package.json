@@ -1,0 +1,32 @@
+{
+  "name": "craftcompass",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Context-aware software craftsmanship and assurance.",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "check": "pnpm format && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "craft": "pnpm --silent build && node apps/cli/dist/main.js",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b --pretty false && tsc -p tsconfig.tests.json --noEmit --pretty false"
+  },
+  "devDependencies": {
+    "@craftcompass/cli": "workspace:*",
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.1",
+    "eslint": "10.8.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0",
+    "vitest": "4.1.10"
+  }
+}

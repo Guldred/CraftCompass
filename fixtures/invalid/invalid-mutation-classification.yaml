@@ -1,0 +1,43 @@
+schema_version: 1
+kind: mutation_report
+id: MUTATION-REPORT-INVALID-CLASSIFICATION
+provider: fixture-provider
+scope:
+  primary_targets:
+    - example.Invalid
+  supporting_targets: []
+  relevant_tests:
+    - InvalidTest
+  confidence: 0.8
+  limitations: []
+totals:
+  generated: 1
+  killed: 0
+  survived: 1
+  no_coverage: 0
+  timed_out: 0
+  errors: 0
+survivors:
+  - id: MUTANT-INVALID-001
+    operator: INVALID
+    description: Deliberately invalid classification fixture.
+    location:
+      file: src/Invalid.java
+    classification: harmless
+    classification_status: candidate
+    evidence:
+      - id: EV-MUTANT-INVALID
+        type: test_result
+        description: Representative mutant evidence.
+        location: artifacts/invalid.xml
+evidence:
+  - id: ASSURANCE-EVIDENCE-INVALID-CLASSIFICATION
+    type: mutation_run
+    status: conditional
+    summary: A deliberately invalid report.
+    captured_at: 2026-07-26T12:00:00Z
+    references:
+      - id: EV-REPORT-INVALID
+        type: test_result
+        description: Representative report evidence.
+        location: artifacts/invalid.xml
