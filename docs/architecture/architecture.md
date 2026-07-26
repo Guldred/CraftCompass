@@ -78,7 +78,7 @@ Multi-artifact commands add:
 ```text
 input files/directories
   -> canonicalize explicit roots; reject artifact/descendant symlinks
-  -> enforce per-file, file-count, aggregate-size, and depth budgets
+  -> enforce per-file, artifact-count, traversal-entry, aggregate-size, and depth budgets
   -> recursively sort and deduplicate YAML paths
   -> parse and validate every artifact in lexical order
   -> enforce global IDs and typed references

@@ -263,7 +263,7 @@ describe('FileSystemRepositoryScanner', () => {
         }
         return Promise.resolve(undefined);
       },
-      readText: () => Promise.reject(permissionFailure),
+      readBoundedText: () => Promise.reject(permissionFailure),
       list: () => Promise.resolve([]),
     };
     const scanner = new FileSystemRepositoryScanner(fileSystem);
@@ -277,6 +277,62 @@ describe('FileSystemRepositoryScanner', () => {
     );
   });
 
+  it.each([
+    {
+      name: 'TypeScript configuration',
+      manifest: 'package.json',
+      probe: 'tsconfig.json',
+      source: '{"name":"example","dependencies":{}}',
+    },
+    {
+      name: 'package-manager lockfile',
+      manifest: 'package.json',
+      probe: 'package-lock.json',
+      source: '{"name":"example","dependencies":{}}',
+    },
+    {
+      name: 'Java source root',
+      manifest: 'pom.xml',
+      probe: 'src/main/java',
+      source:
+        '<project><modelVersion>4.0.0</modelVersion><artifactId>example</artifactId></project>',
+    },
+  ])(
+    'propagates a filesystem failure while probing $name',
+    async ({ manifest, probe, source }) => {
+      const permissionFailure = Object.assign(new Error('permission denied'), {
+        code: 'EACCES',
+      });
+      const root = '/virtual/repository';
+      const fileSystem: RepositoryFileSystem = {
+        canonicalize: () => Promise.resolve(root),
+        inspect: (candidate) => {
+          if (candidate === root) {
+            return Promise.resolve({ kind: 'directory', size: 0 });
+          }
+          if (candidate === `${root}/${manifest}`) {
+            return Promise.resolve({ kind: 'file', size: source.length });
+          }
+          if (candidate === `${root}/${probe}`) {
+            return Promise.reject(permissionFailure);
+          }
+          return Promise.resolve(undefined);
+        },
+        readBoundedText: () => Promise.resolve(source),
+        list: () => Promise.resolve([]),
+      };
+      const scanner = new FileSystemRepositoryScanner(fileSystem);
+
+      await expect(scanner.scan(root)).rejects.toEqual(
+        expect.objectContaining<Partial<RepositoryScanError>>({
+          name: 'RepositoryScanError',
+          message: `Could not inspect repository path: ${probe}`,
+          cause: permissionFailure,
+        }),
+      );
+    },
+  );
+
   it('rejects oversized manifests before reading their contents', async () => {
     let attemptedRead = false;
     const fileSystem: RepositoryFileSystem = {
@@ -289,7 +345,7 @@ describe('FileSystemRepositoryScanner', () => {
               ? { kind: 'file', size: 2 * 1024 * 1024 + 1 }
               : undefined,
         ),
-      readText: () => {
+      readBoundedText: () => {
         attemptedRead = true;
         return Promise.resolve('{}');
       },
@@ -314,7 +370,7 @@ describe('FileSystemRepositoryScanner', () => {
               ? { kind: 'symlink', size: 12 }
               : undefined,
         ),
-      readText: () => Promise.resolve('{}'),
+      readBoundedText: () => Promise.resolve('{}'),
       list: () => Promise.resolve([]),
     };
     const scanner = new FileSystemRepositoryScanner(fileSystem);
@@ -322,5 +378,33 @@ describe('FileSystemRepositoryScanner', () => {
     await expect(scanner.scan('/virtual/repository')).rejects.toThrow(
       'Refusing to follow manifest symlink: package.json',
     );
+  });
+
+  it('propagates a bounded no-follow read refusal after a manifest swap', async () => {
+    const root = '/virtual/repository';
+    let receivedLimit: number | undefined;
+    const swapFailure = new RepositoryScanError(
+      'Manifest changed before its bounded read completed',
+    );
+    const fileSystem: RepositoryFileSystem = {
+      canonicalize: () => Promise.resolve(root),
+      inspect: (candidate) =>
+        Promise.resolve(
+          candidate === root
+            ? { kind: 'directory', size: 0 }
+            : candidate === `${root}/package.json`
+              ? { kind: 'file', size: 20 }
+              : undefined,
+        ),
+      readBoundedText: (_candidate, maxBytes) => {
+        receivedLimit = maxBytes;
+        return Promise.reject(swapFailure);
+      },
+      list: () => Promise.resolve([]),
+    };
+    const scanner = new FileSystemRepositoryScanner(fileSystem);
+
+    await expect(scanner.scan(root)).rejects.toBe(swapFailure);
+    expect(receivedLimit).toBe(2 * 1024 * 1024);
   });
 });

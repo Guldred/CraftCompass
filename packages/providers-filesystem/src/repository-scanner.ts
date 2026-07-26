@@ -1,5 +1,5 @@
-import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
-import type { Dirent } from 'node:fs';
+import { constants, type Dirent } from 'node:fs';
+import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -53,7 +53,7 @@ interface RepositoryDirectoryEntry {
 export interface RepositoryFileSystem {
   canonicalize(path: string): Promise<string>;
   inspect(path: string): Promise<RepositoryEntry | undefined>;
-  readText(path: string): Promise<string>;
+  readBoundedText(path: string, maxBytes: number): Promise<string>;
   list(path: string): Promise<readonly RepositoryDirectoryEntry[]>;
 }
 
@@ -75,6 +75,13 @@ export class RepositoryScanError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = 'RepositoryScanError';
+  }
+}
+
+class ManifestParseError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ManifestParseError';
   }
 }
 
@@ -140,7 +147,32 @@ const nodeRepositoryFileSystem: RepositoryFileSystem = {
       throw error;
     }
   },
-  readText: (candidate) => readFile(candidate, 'utf8'),
+  readBoundedText: async (candidate, maxBytes) => {
+    let handle;
+    try {
+      handle = await open(candidate, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const entry = await handle.stat();
+      if (!entry.isFile()) {
+        throw new RepositoryScanError(
+          `Refusing to read a non-regular manifest: ${candidate}`,
+        );
+      }
+      if (entry.size > maxBytes) {
+        throw new RepositoryScanError(
+          `Manifest exceeds ${maxBytes} bytes: ${candidate}`,
+        );
+      }
+      const content = await handle.readFile();
+      if (content.byteLength > maxBytes) {
+        throw new RepositoryScanError(
+          `Manifest exceeds ${maxBytes} bytes: ${candidate}`,
+        );
+      }
+      return content.toString('utf8');
+    } finally {
+      await handle?.close();
+    }
+  },
   list: async (candidate) => {
     try {
       const entries = await readdir(candidate, { withFileTypes: true });
@@ -226,9 +258,16 @@ const stringArray = (value: unknown): readonly string[] => {
 };
 
 const parsePackageManifest = (source: string): PackageManifest => {
-  const parsed: unknown = JSON.parse(source);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch (error) {
+    throw new ManifestParseError('package.json could not be decoded as JSON.', {
+      cause: error,
+    });
+  }
   if (!isRecord(parsed)) {
-    throw new RepositoryScanError('package.json must contain an object');
+    throw new ManifestParseError('package.json must contain an object.');
   }
   const dependencies = {
     ...stringRecord(parsed.dependencies),
@@ -286,28 +325,40 @@ const resolveMavenProperty = (
 
 const parseMavenModel = (source: string): MavenModel => {
   if (/<!DOCTYPE/i.test(source)) {
-    throw new RepositoryScanError('Maven POM must not contain a DOCTYPE');
+    throw new ManifestParseError('Maven POM must not contain a DOCTYPE.');
   }
-  const validation = SyntaxValidator.validate(source, {
-    docType: {
-      maxEntityCount: 0,
-      maxEntitySize: 0,
-    },
-    invalidCharSequence: {
-      attrLt: true,
-      comment: true,
-      tagValue: true,
-    },
-  });
+  let validation;
+  try {
+    validation = SyntaxValidator.validate(source, {
+      docType: {
+        maxEntityCount: 0,
+        maxEntitySize: 0,
+      },
+      invalidCharSequence: {
+        attrLt: true,
+        comment: true,
+        tagValue: true,
+      },
+    });
+  } catch (error) {
+    throw new ManifestParseError('Maven XML is invalid.', { cause: error });
+  }
   if (validation !== true) {
-    throw new RepositoryScanError(
-      `Invalid Maven XML at line ${validation.err.line}, column ${validation.err.col}: ${validation.err.msg}`,
+    throw new ManifestParseError(
+      `Maven XML is invalid at line ${validation.err.line}, column ${validation.err.col}.`,
     );
   }
-  const parsed: unknown = mavenParser.parse(source);
+  let parsed: unknown;
+  try {
+    parsed = mavenParser.parse(source);
+  } catch (error) {
+    throw new ManifestParseError('Maven XML could not be decoded.', {
+      cause: error,
+    });
+  }
   if (!isRecord(parsed) || !isRecord(parsed.project)) {
-    throw new RepositoryScanError(
-      'Maven POM must contain one project root element',
+    throw new ManifestParseError(
+      'Maven POM must contain one project root element.',
     );
   }
   const project = parsed.project;
@@ -511,8 +562,14 @@ export class FileSystemRepositoryScanner implements RepositoryScanner {
         );
       }
       try {
-        return await this.fileSystem.readText(resolved);
+        return await this.fileSystem.readBoundedText(
+          resolved,
+          MAX_MANIFEST_BYTES,
+        );
       } catch (error) {
+        if (error instanceof RepositoryScanError) {
+          throw error;
+        }
         throw new RepositoryScanError(
           `Could not read repository manifest: ${relativePath}`,
           { cause: error },
@@ -804,6 +861,9 @@ export class FileSystemRepositoryScanner implements RepositoryScanner {
           packageEvidence,
         );
       } catch (error) {
+        if (!(error instanceof ManifestParseError)) {
+          throw error;
+        }
         addUncertainty(
           'UNCERTAINTY-PACKAGE-MANIFEST',
           'package.json exists but is not a valid supported package manifest.',
@@ -937,6 +997,9 @@ export class FileSystemRepositoryScanner implements RepositoryScanner {
           mavenEvidence,
         );
       } catch (error) {
+        if (!(error instanceof ManifestParseError)) {
+          throw error;
+        }
         addUncertainty(
           'UNCERTAINTY-MAVEN-MANIFEST',
           'pom.xml exists but is not a valid supported Maven project model.',

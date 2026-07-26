@@ -1,4 +1,4 @@
-import { lstat, readdir, realpath } from 'node:fs/promises';
+import { lstat, opendir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import { validateArtifact, type LocatedArtifact } from '@craftcompass/domain';
@@ -12,6 +12,7 @@ import {
 export const MAX_ARTIFACT_INPUT_FILES = 1_000;
 export const MAX_ARTIFACT_INPUT_BYTES = 32 * 1024 * 1024;
 export const MAX_ARTIFACT_DIRECTORY_DEPTH = 32;
+export const MAX_ARTIFACT_TRAVERSAL_ENTRIES = 1_000;
 
 const compareText = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
@@ -27,6 +28,7 @@ const normalizeOrigin = (candidate: string): string =>
 interface CollectionState {
   readonly collected: Set<string>;
   totalBytes: number;
+  traversedEntries: number;
 }
 
 const collectYamlPaths = async (
@@ -89,10 +91,22 @@ const collectYamlPaths = async (
     );
   }
 
-  let children;
+  const children = [];
   try {
-    children = await readdir(candidate, { withFileTypes: true });
+    const directory = await opendir(candidate);
+    for await (const child of directory) {
+      state.traversedEntries += 1;
+      if (state.traversedEntries > MAX_ARTIFACT_TRAVERSAL_ENTRIES) {
+        throw new ArtifactFileError(
+          `Artifact traversal exceeds the ${MAX_ARTIFACT_TRAVERSAL_ENTRIES}-entry limit`,
+        );
+      }
+      children.push(child);
+    }
   } catch (error) {
+    if (error instanceof ArtifactFileError) {
+      throw error;
+    }
     throw new ArtifactFileError(`Could not list ${candidate}`, {
       cause: error,
     });
@@ -145,6 +159,7 @@ export const loadArtifactInputs = async (
   const state: CollectionState = {
     collected: new Set<string>(),
     totalBytes: 0,
+    traversedEntries: 0,
   };
   for (const inputPath of inputPaths) {
     await collectYamlPaths(await canonicalizeInput(inputPath), true, state, 0);

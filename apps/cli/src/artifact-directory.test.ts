@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   loadArtifactInputs,
   MAX_ARTIFACT_DIRECTORY_DEPTH,
+  MAX_ARTIFACT_TRAVERSAL_ENTRIES,
 } from './artifact-directory.js';
 import { MAX_ARTIFACT_FILE_BYTES, readYamlArtifact } from './artifact-file.js';
 
@@ -164,6 +165,28 @@ describe('artifact input loading', () => {
         loadArtifactInputs([temporaryDirectory], VALIDATION_DATE),
       ).rejects.toThrow(
         `Artifact directory depth exceeds ${MAX_ARTIFACT_DIRECTORY_DEPTH}`,
+      );
+    } finally {
+      await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('bounds total traversal work including non-YAML entries', async () => {
+    const temporaryDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'craftcompass-artifacts-'),
+    );
+    try {
+      for (let index = 0; index <= MAX_ARTIFACT_TRAVERSAL_ENTRIES; index += 1) {
+        await writeFile(
+          path.join(temporaryDirectory, `ignored-${index}.txt`),
+          '',
+        );
+      }
+
+      await expect(
+        loadArtifactInputs([temporaryDirectory], VALIDATION_DATE),
+      ).rejects.toThrow(
+        `Artifact traversal exceeds the ${MAX_ARTIFACT_TRAVERSAL_ENTRIES}-entry limit`,
       );
     } finally {
       await rm(temporaryDirectory, { recursive: true, force: true });
