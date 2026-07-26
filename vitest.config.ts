@@ -8,6 +8,9 @@ export default defineConfig({
       '@craftcompass/domain': fileURLToPath(
         new URL('./packages/domain/src/index.ts', import.meta.url),
       ),
+      '@craftcompass/assurance-engine': fileURLToPath(
+        new URL('./packages/assurance-engine/src/index.ts', import.meta.url),
+      ),
       '@craftcompass/providers-filesystem': fileURLToPath(
         new URL(
           './packages/providers-filesystem/src/index.ts',

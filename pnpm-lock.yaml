@@ -51,6 +51,12 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/assurance-engine:
+    dependencies:
+      '@craftcompass/domain':
+        specifier: workspace:*
+        version: link:../domain
+
   packages/providers-filesystem:
     dependencies:
       '@craftcompass/domain':

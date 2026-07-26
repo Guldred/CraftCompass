@@ -10,6 +10,7 @@ import {
   UniqueArtifactIdListSchema,
   UniqueStringListSchema,
 } from './common.js';
+import { ChangeConcernSchema } from './change.js';
 import { ExceptionPolicySchema } from './rules.js';
 import { duplicateIndexesBy } from './schema-helpers.js';
 
@@ -62,6 +63,7 @@ export const QualityGateRequirementSchema = z.strictObject({
   type: QualityGateTypeSchema,
   blocking: z.boolean(),
   reason: NonEmptyStringSchema,
+  targets: UniqueStringListSchema.optional(),
 });
 
 /** One normalized quality-gate requirement. */
@@ -387,16 +389,32 @@ export const MutationReportSchema = z
 /** A validated, provider-neutral mutation report artifact. */
 export type MutationReport = z.infer<typeof MutationReportSchema>;
 
+const ChangeConcernSelectorListSchema = z
+  .array(ChangeConcernSchema)
+  .superRefine((concerns, context) => {
+    duplicateIndexesBy(concerns, (concern) => concern).forEach((index) => {
+      context.addIssue({
+        code: 'custom',
+        message: 'Change concern selectors must be unique',
+        path: [index],
+      });
+    });
+  });
+
 const ReviewPolicySchema = z.strictObject({
   default_level: ReviewLevelSchema,
   always_review: UniqueStringListSchema.min(1),
   selective_review: UniqueStringListSchema,
+  always_review_concerns: ChangeConcernSelectorListSchema.optional(),
+  selective_review_concerns: ChangeConcernSelectorListSchema.optional(),
 });
 
 const TestingPolicySchema = z.strictObject({
   unit_tests_required: z.boolean(),
   acceptance_tests_required_for: UniqueStringListSchema,
   integration_tests_required_for: UniqueStringListSchema,
+  acceptance_concerns: ChangeConcernSelectorListSchema.optional(),
+  integration_concerns: ChangeConcernSelectorListSchema.optional(),
 });
 
 const ArchitecturePolicySchema = z.strictObject({
@@ -408,7 +426,21 @@ const ArchitecturePolicySchema = z.strictObject({
 const SecurityPolicySchema = z.strictObject({
   dependency_scanning_required: z.boolean(),
   human_review_required_for: UniqueStringListSchema,
+  human_review_concerns: ChangeConcernSelectorListSchema.optional(),
 });
+
+/** Evidence-backed readiness required before reducing implementation review. */
+export const AssuranceReadinessSchema = z.strictObject({
+  test_reliability: z.enum(['unknown', 'weak', 'established']),
+  architecture_checks: z.enum(['absent', 'partial', 'established']),
+  mutation_baseline: z.enum(['missing', 'stale', 'available']),
+  impact_analysis: z.enum(['unreliable', 'developing', 'reliable']),
+  rollback: z.enum(['unknown', 'unsupported', 'supported']),
+  evidence: EvidenceReferenceListSchema.min(1),
+});
+
+/** Project maturity evidence used as a prerequisite, never an autonomy score. */
+export type AssuranceReadiness = z.infer<typeof AssuranceReadinessSchema>;
 
 /** Project-wide defaults from which change-specific assurance plans can be derived. */
 export const AssuranceProfileSchema = z.strictObject({
@@ -424,6 +456,7 @@ export const AssuranceProfileSchema = z.strictObject({
   mutation_policy: MutationPolicySchema,
   security_policy: SecurityPolicySchema,
   exception_policy: ExceptionPolicySchema,
+  readiness: AssuranceReadinessSchema.optional(),
 });
 
 /** A validated project assurance-profile artifact. */
@@ -449,20 +482,73 @@ const QualityGateRequirementListSchema = z
     );
   });
 
-/** Change-specific list of gates, mutation scope, and human review needs. */
-export const AssurancePlanSchema = z.strictObject({
-  schema_version: z.literal(SUPPORTED_SCHEMA_VERSION),
-  kind: z.literal('assurance_plan'),
-  id: ArtifactIdSchema,
-  change_id: NonEmptyStringSchema,
-  project_ref: ArtifactIdSchema,
-  risk: RiskAssessmentSchema,
-  impacted_flows: UniqueStringListSchema,
-  required_gates: QualityGateRequirementListSchema.min(1),
-  mutation_scope: MutationScopeSchema.optional(),
-  human_review: ReviewRequirementSchema,
-  rationale: UniqueStringListSchema.min(1),
+/** One evidence-linked deterministic planner decision. */
+export const DerivationDecisionSchema = z.strictObject({
+  code: ArtifactIdSchema,
+  summary: NonEmptyStringSchema,
+  evidence_refs: UniqueArtifactIdListSchema.min(1),
 });
+
+const DerivationDecisionListSchema = z
+  .array(DerivationDecisionSchema)
+  .superRefine((decisions, context) => {
+    duplicateIndexesBy(decisions, (decision) => decision.code).forEach(
+      (index) => {
+        context.addIssue({
+          code: 'custom',
+          message: 'Derivation decision codes must be unique',
+          path: [index, 'code'],
+        });
+      },
+    );
+  });
+
+/** Change-specific list of gates, mutation scope, and human review needs. */
+export const AssurancePlanSchema = z
+  .strictObject({
+    schema_version: z.literal(SUPPORTED_SCHEMA_VERSION),
+    kind: z.literal('assurance_plan'),
+    id: ArtifactIdSchema,
+    change_id: NonEmptyStringSchema,
+    project_ref: ArtifactIdSchema,
+    assurance_profile_ref: ArtifactIdSchema,
+    change_context_ref: ArtifactIdSchema.optional(),
+    impact_ref: ArtifactIdSchema.optional(),
+    risk: RiskAssessmentSchema,
+    impacted_flows: UniqueStringListSchema,
+    required_gates: QualityGateRequirementListSchema.min(1),
+    mutation_scope: MutationScopeSchema.optional(),
+    human_review: ReviewRequirementSchema,
+    rationale: UniqueStringListSchema.min(1),
+    derivation_evidence: EvidenceReferenceListSchema.optional(),
+    decision_trace: DerivationDecisionListSchema.optional(),
+  })
+  .superRefine((plan, context) => {
+    if (plan.decision_trace === undefined) {
+      return;
+    }
+    const evidenceIds = new Set([
+      ...plan.risk.evidence.map((evidence) => evidence.id),
+      ...(plan.derivation_evidence ?? []).map((evidence) => evidence.id),
+    ]);
+    plan.decision_trace.forEach((decision, decisionIndex) => {
+      decision.evidence_refs.forEach((reference, referenceIndex) => {
+        if (!evidenceIds.has(reference)) {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'Derivation evidence reference must resolve within the assurance plan',
+            path: [
+              'decision_trace',
+              decisionIndex,
+              'evidence_refs',
+              referenceIndex,
+            ],
+          });
+        }
+      });
+    });
+  });
 
 /** A validated assurance plan for one change. */
 export type AssurancePlan = z.infer<typeof AssurancePlanSchema>;

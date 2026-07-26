@@ -1,0 +1,27 @@
+{
+  "mode": "result",
+  "status": "degraded",
+  "impact": {
+    "completeness": "unknown",
+    "changed_symbols": [],
+    "direct_impacts": [],
+    "indirect_impacts": [],
+    "impacted_flows": [],
+    "functional_clusters": [],
+    "candidate_tests": [],
+    "confidence": 0.42,
+    "limitations": [
+      "Only a subset of symbols resolved.",
+      "Dependency-injection relationships may be absent."
+    ],
+    "evidence": [
+      {
+        "id": "EV-GRAPH-LOW-CONFIDENCE",
+        "type": "code_graph",
+        "description": "Synthetic graph query resolved only the changed symbol.",
+        "location": "graph:CHANGE-LOW-CONFIDENCE",
+        "provider": "synthetic-code-graph"
+      }
+    ]
+  }
+}

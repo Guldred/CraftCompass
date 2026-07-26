@@ -3,6 +3,7 @@ kind: assurance_plan
 id: ASSURANCE-PLAN-ORDER-CANCELLATION
 change_id: FEATURE-482
 project_ref: PROJECT-ORDER-SERVICE
+assurance_profile_ref: ASSURANCE-PROFILE-ORDER-SERVICE
 risk:
   overall: high
   likelihood: medium

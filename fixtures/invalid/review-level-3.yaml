@@ -3,6 +3,7 @@ kind: assurance_plan
 id: ASSURANCE-PLAN-LEVEL-3
 change_id: INVALID-LEVEL-3
 project_ref: PROJECT-ORDER-SERVICE
+assurance_profile_ref: ASSURANCE-PROFILE-ORDER-SERVICE
 risk:
   overall: low
   likelihood: low

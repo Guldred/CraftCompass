@@ -1,0 +1,98 @@
+{
+  "mode": "result",
+  "status": "available",
+  "impact": {
+    "completeness": "partial",
+    "changed_symbols": [],
+    "direct_impacts": [
+      {
+        "symbol": {
+          "qualified_name": "example.order.domain.CancellationPolicy.mayCancel",
+          "kind": "method",
+          "role": "production",
+          "target": "example.order.domain.CancellationPolicy",
+          "confidence": 0.93,
+          "evidence": [
+            {
+              "id": "EV-GRAPH-INDIRECT",
+              "type": "code_graph",
+              "description": "Synthetic direct and indirect impact trace.",
+              "location": "graph:CHANGE-INDIRECT",
+              "provider": "synthetic-code-graph"
+            }
+          ]
+        },
+        "distance": 1,
+        "relationships": ["calls"]
+      }
+    ],
+    "indirect_impacts": [
+      {
+        "symbol": {
+          "qualified_name": "example.order.domain.RefundDecision.evaluate",
+          "kind": "method",
+          "role": "production",
+          "target": "example.order.domain.RefundDecision",
+          "confidence": 0.81,
+          "evidence": [
+            {
+              "id": "EV-GRAPH-INDIRECT",
+              "type": "code_graph",
+              "description": "Synthetic direct and indirect impact trace.",
+              "location": "graph:CHANGE-INDIRECT",
+              "provider": "synthetic-code-graph"
+            }
+          ]
+        },
+        "distance": 2,
+        "relationships": ["calls", "returns_to"]
+      }
+    ],
+    "impacted_flows": [
+      {
+        "id": "FLOW-REFUND",
+        "name": "Refund initialization",
+        "symbol_refs": ["example.order.domain.RefundDecision.evaluate"],
+        "evidence": [
+          {
+            "id": "EV-GRAPH-INDIRECT",
+            "type": "code_graph",
+            "description": "Synthetic direct and indirect impact trace.",
+            "location": "graph:CHANGE-INDIRECT",
+            "provider": "synthetic-code-graph"
+          }
+        ]
+      }
+    ],
+    "functional_clusters": [],
+    "candidate_tests": [
+      {
+        "qualified_name": "example.order.domain.RefundDecisionTest",
+        "kind": "class",
+        "role": "test",
+        "target": "example.order.domain.RefundDecisionTest",
+        "confidence": 0.78,
+        "evidence": [
+          {
+            "id": "EV-GRAPH-INDIRECT",
+            "type": "code_graph",
+            "description": "Synthetic direct and indirect impact trace.",
+            "location": "graph:CHANGE-INDIRECT",
+            "provider": "synthetic-code-graph"
+          }
+        ]
+      }
+    ],
+    "confidence": 0.82,
+    "limitations": ["Runtime event subscribers are not represented."],
+    "evidence": [
+      {
+        "id": "EV-GRAPH-INDIRECT",
+        "type": "code_graph",
+        "description": "Synthetic direct and indirect impact trace.",
+        "location": "graph:CHANGE-INDIRECT",
+        "provider": "synthetic-code-graph"
+      }
+    ]
+  }
+}

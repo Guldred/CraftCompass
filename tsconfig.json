@@ -5,6 +5,9 @@
       "path": "./packages/domain"
     },
     {
+      "path": "./packages/assurance-engine"
+    },
+    {
       "path": "./packages/providers-filesystem"
     },
     {

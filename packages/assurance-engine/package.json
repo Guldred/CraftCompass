@@ -1,0 +1,19 @@
+{
+  "name": "@craftcompass/assurance-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic change-impact and assurance planning for CraftCompass.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@craftcompass/domain": "workspace:*"
+  }
+}

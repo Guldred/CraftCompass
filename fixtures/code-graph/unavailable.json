@@ -1,0 +1,13 @@
+{
+  "mode": "unavailable",
+  "reason": "No graph index is available for the requested revision.",
+  "evidence": [
+    {
+      "id": "EV-GRAPH-UNAVAILABLE",
+      "type": "code_graph",
+      "description": "The synthetic provider has no indexed graph.",
+      "location": "graph:unavailable",
+      "provider": "synthetic-code-graph"
+    }
+  ]
+}

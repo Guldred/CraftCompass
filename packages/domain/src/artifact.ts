@@ -5,6 +5,7 @@ import {
   AssuranceProfileSchema,
   MutationReportSchema,
 } from './assurance.js';
+import { ChangeContextSchema, ChangeImpactSchema } from './change.js';
 import { SUPPORTED_SCHEMA_VERSION } from './common.js';
 import {
   CraftsmanshipPrincipleSchema,
@@ -18,6 +19,8 @@ export const ARTIFACT_KINDS = [
   'craftsmanship_principle',
   'practice_statement',
   'project_profile',
+  'change_context',
+  'change_impact',
   'project_rule',
   'assurance_profile',
   'assurance_plan',
@@ -32,6 +35,8 @@ export type CraftArtifact =
   | z.infer<typeof CraftsmanshipPrincipleSchema>
   | z.infer<typeof PracticeStatementSchema>
   | z.infer<typeof ProjectProfileSchema>
+  | z.infer<typeof ChangeContextSchema>
+  | z.infer<typeof ChangeImpactSchema>
   | z.infer<typeof ProjectRuleSchema>
   | z.infer<typeof AssuranceProfileSchema>
   | z.infer<typeof AssurancePlanSchema>
@@ -83,6 +88,8 @@ const schemaByKind: Record<ArtifactKind, z.ZodType> = {
   craftsmanship_principle: CraftsmanshipPrincipleSchema,
   practice_statement: PracticeStatementSchema,
   project_profile: ProjectProfileSchema,
+  change_context: ChangeContextSchema,
+  change_impact: ChangeImpactSchema,
   project_rule: ProjectRuleSchema,
   assurance_profile: AssuranceProfileSchema,
   assurance_plan: AssurancePlanSchema,

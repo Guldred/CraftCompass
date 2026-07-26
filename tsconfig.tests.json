@@ -5,6 +5,9 @@
     "types": ["node", "vitest/globals"],
     "paths": {
       "@craftcompass/domain": ["./packages/domain/src/index.ts"],
+      "@craftcompass/assurance-engine": [
+        "./packages/assurance-engine/src/index.ts"
+      ],
       "@craftcompass/providers-filesystem": [
         "./packages/providers-filesystem/src/index.ts"
       ]

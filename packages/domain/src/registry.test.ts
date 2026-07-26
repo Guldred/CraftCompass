@@ -152,6 +152,7 @@ const assurancePlanFor = (
     id: 'ASSURANCE-PLAN-REGISTRY',
     change_id: 'CHANGE-REGISTRY',
     project_ref: projectRef,
+    assurance_profile_ref: 'ASSURANCE-PROFILE-REGISTRY',
     risk: {
       overall: 'medium',
       likelihood: 'medium',

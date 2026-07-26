@@ -84,6 +84,50 @@ const countSupportedReferences = (artifact: CraftArtifact): number => {
           0,
         )
       );
+    case 'change_context':
+      return (
+        1 +
+        countSourceReferences(artifact.evidence) +
+        artifact.changed_files.reduce(
+          (count, file) => count + countSourceReferences(file.evidence),
+          0,
+        ) +
+        artifact.changed_symbols.reduce(
+          (count, symbol) => count + countSourceReferences(symbol.evidence),
+          0,
+        )
+      );
+    case 'change_impact':
+      return (
+        2 +
+        countSourceReferences(artifact.evidence) +
+        artifact.changed_symbols.reduce(
+          (count, symbol) => count + countSourceReferences(symbol.evidence),
+          0,
+        ) +
+        artifact.direct_impacts.reduce(
+          (count, impact) =>
+            count + countSourceReferences(impact.symbol.evidence),
+          0,
+        ) +
+        artifact.indirect_impacts.reduce(
+          (count, impact) =>
+            count + countSourceReferences(impact.symbol.evidence),
+          0,
+        ) +
+        artifact.impacted_flows.reduce(
+          (count, flow) => count + countSourceReferences(flow.evidence),
+          0,
+        ) +
+        artifact.functional_clusters.reduce(
+          (count, cluster) => count + countSourceReferences(cluster.evidence),
+          0,
+        ) +
+        artifact.candidate_tests.reduce(
+          (count, test) => count + countSourceReferences(test.evidence),
+          0,
+        )
+      );
     case 'project_rule':
       return (
         1 +
@@ -100,6 +144,7 @@ const countSupportedReferences = (artifact: CraftArtifact): number => {
     case 'assurance_profile':
       return (
         1 +
+        countSourceReferences(artifact.readiness?.evidence ?? []) +
         artifact.exception_policy.active_exceptions.reduce(
           (count, exception) =>
             count + countSourceReferences(exception.evidence),
@@ -107,7 +152,13 @@ const countSupportedReferences = (artifact: CraftArtifact): number => {
         )
       );
     case 'assurance_plan':
-      return 1 + countSourceReferences(artifact.risk.evidence);
+      return (
+        2 +
+        (artifact.change_context_ref === undefined ? 0 : 1) +
+        (artifact.impact_ref === undefined ? 0 : 1) +
+        countSourceReferences(artifact.risk.evidence) +
+        countSourceReferences(artifact.derivation_evidence ?? [])
+      );
     case 'mutation_report':
       return (
         artifact.survivors.reduce(

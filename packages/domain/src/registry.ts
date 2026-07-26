@@ -12,6 +12,7 @@ export interface LocatedArtifact {
 export type RegistryIssueCode =
   | 'ambiguous_artifact_reference'
   | 'ambiguous_source_reference'
+  | 'artifact_scope_mismatch'
   | 'conflicting_evidence_reference'
   | 'conflicting_source_reference'
   | 'duplicate_artifact_id'
@@ -135,7 +136,9 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
       ? `project:${artifact.id}`
       : artifact.kind === 'project_rule' ||
           artifact.kind === 'assurance_profile' ||
-          artifact.kind === 'assurance_plan'
+          artifact.kind === 'assurance_plan' ||
+          artifact.kind === 'change_context' ||
+          artifact.kind === 'change_impact'
         ? `project:${artifact.project_ref}`
         : `artifact:${artifact.id}`;
   switch (artifact.kind) {
@@ -203,6 +206,78 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
               artifact.adaptation_context.evidence,
             )),
       ];
+    case 'change_context':
+      return [
+        ...evidenceOccurrences(origin, scope, '$.evidence', artifact.evidence),
+        ...artifact.changed_files.flatMap((file, fileIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.changed_files[${fileIndex}].evidence`,
+            file.evidence,
+          ),
+        ),
+        ...artifact.changed_symbols.flatMap((symbol, symbolIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.changed_symbols[${symbolIndex}].evidence`,
+            symbol.evidence,
+          ),
+        ),
+      ];
+    case 'change_impact':
+      return [
+        ...evidenceOccurrences(origin, scope, '$.evidence', artifact.evidence),
+        ...artifact.changed_symbols.flatMap((symbol, symbolIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.changed_symbols[${symbolIndex}].evidence`,
+            symbol.evidence,
+          ),
+        ),
+        ...artifact.direct_impacts.flatMap((impact, impactIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.direct_impacts[${impactIndex}].symbol.evidence`,
+            impact.symbol.evidence,
+          ),
+        ),
+        ...artifact.indirect_impacts.flatMap((impact, impactIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.indirect_impacts[${impactIndex}].symbol.evidence`,
+            impact.symbol.evidence,
+          ),
+        ),
+        ...artifact.impacted_flows.flatMap((flow, flowIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.impacted_flows[${flowIndex}].evidence`,
+            flow.evidence,
+          ),
+        ),
+        ...artifact.functional_clusters.flatMap((cluster, clusterIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.functional_clusters[${clusterIndex}].evidence`,
+            cluster.evidence,
+          ),
+        ),
+        ...artifact.candidate_tests.flatMap((test, testIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.candidate_tests[${testIndex}].evidence`,
+            test.evidence,
+          ),
+        ),
+      ];
     case 'project_rule':
       return [
         ...evidenceOccurrences(origin, scope, '$.evidence', artifact.evidence),
@@ -217,22 +292,42 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
         ),
       ];
     case 'assurance_profile':
-      return artifact.exception_policy.active_exceptions.flatMap(
-        (exception, exceptionIndex) =>
-          evidenceOccurrences(
-            origin,
-            scope,
-            `$.exception_policy.active_exceptions[${exceptionIndex}].evidence`,
-            exception.evidence,
-          ),
-      );
+      return [
+        ...(artifact.readiness === undefined
+          ? []
+          : evidenceOccurrences(
+              origin,
+              scope,
+              '$.readiness.evidence',
+              artifact.readiness.evidence,
+            )),
+        ...artifact.exception_policy.active_exceptions.flatMap(
+          (exception, exceptionIndex) =>
+            evidenceOccurrences(
+              origin,
+              scope,
+              `$.exception_policy.active_exceptions[${exceptionIndex}].evidence`,
+              exception.evidence,
+            ),
+        ),
+      ];
     case 'assurance_plan':
-      return evidenceOccurrences(
-        origin,
-        scope,
-        '$.risk.evidence',
-        artifact.risk.evidence,
-      );
+      return [
+        ...evidenceOccurrences(
+          origin,
+          scope,
+          '$.risk.evidence',
+          artifact.risk.evidence,
+        ),
+        ...(artifact.derivation_evidence === undefined
+          ? []
+          : evidenceOccurrences(
+              origin,
+              scope,
+              '$.derivation_evidence',
+              artifact.derivation_evidence,
+            )),
+      ];
     case 'mutation_report':
       return [
         ...artifact.survivors.flatMap((survivor, survivorIndex) =>
@@ -506,7 +601,6 @@ const validateCrossArtifactReferences = (
         break;
       }
       case 'assurance_profile':
-      case 'assurance_plan':
         validateArtifactReference(
           entry,
           '$.project_ref',
@@ -517,6 +611,140 @@ const validateCrossArtifactReferences = (
           issues,
         );
         break;
+      case 'change_context':
+        validateArtifactReference(
+          entry,
+          '$.project_ref',
+          artifact.project_ref,
+          'project_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        break;
+      case 'change_impact':
+        validateArtifactReference(
+          entry,
+          '$.project_ref',
+          artifact.project_ref,
+          'project_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        {
+          const changeEntry = validateArtifactReference(
+            entry,
+            '$.change_ref',
+            artifact.change_ref,
+            'change_context',
+            artifactsById,
+            duplicateIds,
+            issues,
+          );
+          if (
+            changeEntry?.artifact.kind === 'change_context' &&
+            changeEntry.artifact.project_ref !== artifact.project_ref
+          ) {
+            issues.push({
+              code: 'artifact_scope_mismatch',
+              origin: entry.origin,
+              path: '$.project_ref',
+              message: `Change impact project ${artifact.project_ref} does not match change-context project ${changeEntry.artifact.project_ref}`,
+            });
+          }
+        }
+        break;
+      case 'assurance_plan': {
+        validateArtifactReference(
+          entry,
+          '$.project_ref',
+          artifact.project_ref,
+          'project_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const assuranceProfileEntry = validateArtifactReference(
+          entry,
+          '$.assurance_profile_ref',
+          artifact.assurance_profile_ref,
+          'assurance_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        let changeEntry: LocatedArtifact | undefined;
+        let impactEntry: LocatedArtifact | undefined;
+        if (artifact.change_context_ref !== undefined) {
+          changeEntry = validateArtifactReference(
+            entry,
+            '$.change_context_ref',
+            artifact.change_context_ref,
+            'change_context',
+            artifactsById,
+            duplicateIds,
+            issues,
+          );
+        }
+        if (artifact.impact_ref !== undefined) {
+          impactEntry = validateArtifactReference(
+            entry,
+            '$.impact_ref',
+            artifact.impact_ref,
+            'change_impact',
+            artifactsById,
+            duplicateIds,
+            issues,
+          );
+        }
+        if (
+          assuranceProfileEntry?.artifact.kind === 'assurance_profile' &&
+          assuranceProfileEntry.artifact.project_ref !== artifact.project_ref
+        ) {
+          issues.push({
+            code: 'artifact_scope_mismatch',
+            origin: entry.origin,
+            path: '$.assurance_profile_ref',
+            message: `Assurance-plan project ${artifact.project_ref} does not match assurance-profile project ${assuranceProfileEntry.artifact.project_ref}`,
+          });
+        }
+        if (
+          changeEntry?.artifact.kind === 'change_context' &&
+          changeEntry.artifact.project_ref !== artifact.project_ref
+        ) {
+          issues.push({
+            code: 'artifact_scope_mismatch',
+            origin: entry.origin,
+            path: '$.change_context_ref',
+            message: `Assurance-plan project ${artifact.project_ref} does not match change-context project ${changeEntry.artifact.project_ref}`,
+          });
+        }
+        if (
+          impactEntry?.artifact.kind === 'change_impact' &&
+          impactEntry.artifact.project_ref !== artifact.project_ref
+        ) {
+          issues.push({
+            code: 'artifact_scope_mismatch',
+            origin: entry.origin,
+            path: '$.impact_ref',
+            message: `Assurance-plan project ${artifact.project_ref} does not match impact project ${impactEntry.artifact.project_ref}`,
+          });
+        }
+        if (
+          changeEntry?.artifact.kind === 'change_context' &&
+          impactEntry?.artifact.kind === 'change_impact' &&
+          impactEntry.artifact.change_ref !== changeEntry.artifact.id
+        ) {
+          issues.push({
+            code: 'artifact_scope_mismatch',
+            origin: entry.origin,
+            path: '$.impact_ref',
+            message: `Impact change ${impactEntry.artifact.change_ref} does not match assurance-plan change context ${changeEntry.artifact.id}`,
+          });
+        }
+        break;
+      }
       case 'craftsmanship_principle':
       case 'practice_statement':
       case 'project_profile':

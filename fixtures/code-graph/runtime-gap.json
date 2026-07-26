@@ -1,0 +1,64 @@
+{
+  "mode": "result",
+  "status": "degraded",
+  "impact": {
+    "completeness": "partial",
+    "changed_symbols": [],
+    "direct_impacts": [
+      {
+        "symbol": {
+          "qualified_name": "example.order.application.NotificationDispatcher.dispatch",
+          "kind": "method",
+          "role": "production",
+          "target": "example.order.application.NotificationDispatcher",
+          "confidence": 0.72,
+          "evidence": [
+            {
+              "id": "EV-GRAPH-RUNTIME-GAP",
+              "type": "code_graph",
+              "description": "A static call reaches the notification dispatcher.",
+              "location": "graph:CHANGE-RUNTIME-GAP",
+              "provider": "synthetic-code-graph"
+            }
+          ]
+        },
+        "distance": 1,
+        "relationships": ["calls"]
+      }
+    ],
+    "indirect_impacts": [],
+    "impacted_flows": [
+      {
+        "id": "FLOW-NOTIFICATION",
+        "name": "Notification dispatch",
+        "symbol_refs": [
+          "example.order.application.NotificationDispatcher.dispatch"
+        ],
+        "evidence": [
+          {
+            "id": "EV-GRAPH-RUNTIME-GAP",
+            "type": "code_graph",
+            "description": "A static call reaches the notification dispatcher.",
+            "location": "graph:CHANGE-RUNTIME-GAP",
+            "provider": "synthetic-code-graph"
+          }
+        ]
+      }
+    ],
+    "functional_clusters": [],
+    "candidate_tests": [],
+    "confidence": 0.72,
+    "limitations": [
+      "Runtime message consumers are known but absent from the static graph."
+    ],
+    "evidence": [
+      {
+        "id": "EV-GRAPH-RUNTIME-GAP",
+        "type": "code_graph",
+        "description": "A static call reaches the notification dispatcher.",
+        "location": "graph:CHANGE-RUNTIME-GAP",
+        "provider": "synthetic-code-graph"
+      }
+    ]
+  }
+}

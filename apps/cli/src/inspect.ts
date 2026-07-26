@@ -48,6 +48,18 @@ export const inspectArtifact = (artifact: CraftArtifact): string => {
         `${plural(artifact.constraints.length, 'constraint')}; ${plural(artifact.uncertainties.length, 'uncertainty', 'uncertainties')}`,
       ].join('\n');
     }
+    case 'change_context':
+      return [
+        `Change context ${artifact.id} for ${artifact.project_ref}`,
+        `Nature: ${artifact.nature}; concerns: ${artifact.concerns.join(', ')}`,
+        `${plural(artifact.changed_files.length, 'changed file')}; ${plural(artifact.changed_symbols.length, 'changed symbol')}`,
+      ].join('\n');
+    case 'change_impact':
+      return [
+        `Change impact ${artifact.id} for ${artifact.change_ref}`,
+        `Status: ${artifact.status}; source: ${artifact.source}; completeness: ${artifact.completeness}; confidence: ${artifact.confidence.toFixed(2)}`,
+        `${plural(artifact.direct_impacts.length, 'direct impact')}; ${plural(artifact.indirect_impacts.length, 'indirect impact')}; ${plural(artifact.impacted_flows.length, 'impacted flow')}`,
+      ].join('\n');
     case 'project_rule':
       return [
         `Project rule ${artifact.id}: ${artifact.title}`,

@@ -1,4 +1,5 @@
 import type { EvidenceReference } from './common.js';
+import type { ChangeContext, CodeGraphImpactData } from './change.js';
 import type {
   MutationClassification,
   MutationPolicy,
@@ -16,27 +17,30 @@ export interface CodeGraphSummary {
   readonly evidence: readonly EvidenceReference[];
 }
 
-/** Provider-neutral change impact without claiming the graph is complete. */
-export interface ChangeImpact {
-  readonly changeRef: string;
-  readonly changedSymbols: readonly string[];
-  readonly impactedSymbols: readonly string[];
-  readonly impactedFlows: readonly string[];
-  readonly confidence: number;
-  readonly limitations: readonly string[];
-  readonly evidence: readonly EvidenceReference[];
-}
+/** Expected graph-query outcomes; unavailability is data, not a false empty result. */
+export type CodeGraphChangeResult =
+  | {
+      readonly status: 'available' | 'degraded';
+      readonly impact: CodeGraphImpactData;
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: string;
+      readonly evidence: readonly EvidenceReference[];
+    };
 
 /** Substitution boundary for future GitNexus or other graph implementations. */
 export interface CodeGraphProvider {
   readonly id: string;
+  /** Synthetic providers can exercise workflows but cannot authorize decisions. */
+  readonly evidenceKind: 'observed' | 'synthetic';
 
   analyzeProject(profile: ProjectProfile): Promise<CodeGraphSummary>;
 
   analyzeChange(
     profile: ProjectProfile,
-    changeRef: string,
-  ): Promise<ChangeImpact>;
+    change: ChangeContext,
+  ): Promise<CodeGraphChangeResult>;
 }
 
 /** Input accepted by any future mutation-testing provider. */

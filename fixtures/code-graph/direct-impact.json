@@ -1,0 +1,97 @@
+{
+  "mode": "result",
+  "status": "available",
+  "impact": {
+    "completeness": "partial",
+    "changed_symbols": [],
+    "direct_impacts": [
+      {
+        "symbol": {
+          "qualified_name": "example.order.domain.CancellationPolicy.mayCancel",
+          "kind": "method",
+          "role": "production",
+          "file": "src/main/java/example/order/domain/CancellationPolicy.java",
+          "target": "example.order.domain.CancellationPolicy",
+          "confidence": 0.94,
+          "evidence": [
+            {
+              "id": "EV-GRAPH-DIRECT",
+              "type": "code_graph",
+              "description": "The cancellation policy is a direct callee of the changed service.",
+              "location": "graph:CHANGE-DIRECT",
+              "provider": "synthetic-code-graph"
+            }
+          ]
+        },
+        "distance": 1,
+        "relationships": ["calls"]
+      }
+    ],
+    "indirect_impacts": [],
+    "impacted_flows": [
+      {
+        "id": "FLOW-CANCELLATION",
+        "name": "Customer cancellation",
+        "symbol_refs": ["example.order.domain.CancellationPolicy.mayCancel"],
+        "evidence": [
+          {
+            "id": "EV-GRAPH-DIRECT",
+            "type": "code_graph",
+            "description": "The cancellation policy is a direct callee of the changed service.",
+            "location": "graph:CHANGE-DIRECT",
+            "provider": "synthetic-code-graph"
+          }
+        ]
+      }
+    ],
+    "functional_clusters": [
+      {
+        "id": "CLUSTER-ORDER-POLICY",
+        "name": "Order policy",
+        "symbol_refs": ["example.order.domain.CancellationPolicy.mayCancel"],
+        "signals": ["high_centrality", "multiple_flow_membership"],
+        "evidence": [
+          {
+            "id": "EV-GRAPH-DIRECT",
+            "type": "code_graph",
+            "description": "The cancellation policy is a direct callee of the changed service.",
+            "location": "graph:CHANGE-DIRECT",
+            "provider": "synthetic-code-graph"
+          }
+        ]
+      }
+    ],
+    "candidate_tests": [
+      {
+        "qualified_name": "example.order.domain.OrderCancellationServiceTest",
+        "kind": "class",
+        "role": "test",
+        "file": "src/test/java/example/order/domain/OrderCancellationServiceTest.java",
+        "target": "example.order.domain.OrderCancellationServiceTest",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "id": "EV-GRAPH-DIRECT",
+            "type": "code_graph",
+            "description": "The cancellation policy is a direct callee of the changed service.",
+            "location": "graph:CHANGE-DIRECT",
+            "provider": "synthetic-code-graph"
+          }
+        ]
+      }
+    ],
+    "confidence": 0.92,
+    "limitations": [
+      "Static impact remains partial even when direct relationships resolve."
+    ],
+    "evidence": [
+      {
+        "id": "EV-GRAPH-DIRECT",
+        "type": "code_graph",
+        "description": "The cancellation policy is a direct callee of the changed service.",
+        "location": "graph:CHANGE-DIRECT",
+        "provider": "synthetic-code-graph"
+      }
+    ]
+  }
+}
