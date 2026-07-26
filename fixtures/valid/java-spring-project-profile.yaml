@@ -6,23 +6,77 @@ technologies:
   - category: language
     name: Java
     version: '21'
+    evidence:
+      - id: EV-POM-JAVA
+        type: build_configuration
+        description: Maven compiler release is 21.
+        location: pom.xml
   - category: framework
     name: Spring Boot
     version: 3.x
+    evidence:
+      - id: EV-POM-SPRING
+        type: build_configuration
+        description: Maven declares Spring Boot dependencies.
+        location: pom.xml
   - category: build_tool
     name: Maven
+    evidence:
+      - id: EV-POM-MAVEN
+        type: build_configuration
+        description: The project uses a Maven project model.
+        location: pom.xml
   - category: test_framework
     name: JUnit
     version: '5'
+    evidence:
+      - id: EV-POM-JUNIT
+        type: build_configuration
+        description: Maven declares JUnit 5 test dependencies.
+        location: pom.xml
 modules:
   - name: order-domain
     path: src/main/java/example/order/domain
+    status: confirmed
+    architecture_role:
+      value: business_policy
+      status: confirmed
+      confidence: 1
+      observation_refs:
+        - OBS-DOMAIN-MODULE-ROLES
+      evidence:
+        - id: EV-DOMAIN-MODULE-ROLES
+          type: human_decision
+          description: The team confirmed the domain and adapter module roles.
+          location: docs/decisions/order-module-roles.md
     responsibilities:
       - Order policy and state transitions.
+    evidence:
+      - id: EV-SOURCE-LAYOUT
+        type: source_file
+        description: Domain and adapter packages are separated.
+        location: src/main/java/example/order
   - name: order-adapters
     path: src/main/java/example/order/adapters
+    status: confirmed
+    architecture_role:
+      value: technical_adapter
+      status: confirmed
+      confidence: 1
+      observation_refs:
+        - OBS-DOMAIN-MODULE-ROLES
+      evidence:
+        - id: EV-DOMAIN-MODULE-ROLES
+          type: human_decision
+          description: The team confirmed the domain and adapter module roles.
+          location: docs/decisions/order-module-roles.md
     responsibilities:
       - Persistence and HTTP integration.
+    evidence:
+      - id: EV-SOURCE-LAYOUT
+        type: source_file
+        description: Domain and adapter packages are separated.
+        location: src/main/java/example/order
 observations:
   - id: OBS-JAVA-MAVEN
     type: fact
@@ -51,6 +105,15 @@ observations:
         type: project_documentation
         description: Architecture notes mention isolated order policy.
         location: docs/architecture.md
+  - id: OBS-DOMAIN-MODULE-ROLES
+    type: decision
+    statement: The team confirmed the domain package as business policy and the adapter package as technical integration.
+    confidence: 1
+    evidence:
+      - id: EV-DOMAIN-MODULE-ROLES
+        type: human_decision
+        description: The team confirmed the domain and adapter module roles.
+        location: docs/decisions/order-module-roles.md
   - id: OBS-SPRING-PROXY-GAP
     type: uncertainty
     statement: Runtime proxy relationships may not be visible statically.
@@ -107,3 +170,21 @@ uncertainties:
         type: source_file
         description: Persistence annotations occur in the domain package.
         location: src/main/java/example/order/domain
+adaptation_context:
+  delivery_stage: legacy
+  architecture_scale: modular_system
+  business_criticality: high
+  architecture_intent: inferred
+  confidence: 0.78
+  observation_refs:
+    - OBS-INCREMENTAL-MIGRATION
+    - OBS-BOUNDARY-INTENT
+  evidence:
+    - id: EV-ADR-MIGRATION
+      type: human_decision
+      description: The team accepted baseline-and-ratcheting migration.
+      location: docs/decisions/architecture-migration.md
+    - id: EV-ARCH-NOTE
+      type: project_documentation
+      description: Architecture notes mention isolated order policy.
+      location: docs/architecture.md

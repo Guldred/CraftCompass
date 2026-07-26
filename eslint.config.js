@@ -24,6 +24,7 @@ export default tseslint.config(
           allowDefaultProject: [
             'apps/cli/src/*.test.ts',
             'packages/domain/src/*.test.ts',
+            'packages/*/src/*.test.ts',
             'vitest.config.ts',
           ],
           defaultProject: 'tsconfig.tests.json',

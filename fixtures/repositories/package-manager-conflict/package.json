@@ -1,0 +1,4 @@
+{
+  "name": "package-manager-conflict",
+  "packageManager": "bun@1.3.0"
+}

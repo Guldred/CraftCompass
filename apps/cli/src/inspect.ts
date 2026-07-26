@@ -1,7 +1,10 @@
 import type { CraftArtifact } from '@craftcompass/domain';
 
-const plural = (count: number, singular: string): string =>
-  `${count} ${singular}${count === 1 ? '' : 's'}`;
+const plural = (
+  count: number,
+  singular: string,
+  pluralForm = `${singular}s`,
+): string => `${count} ${count === 1 ? singular : pluralForm}`;
 
 /** Renders a stable human summary without leaking validation-library details. */
 export const inspectArtifact = (artifact: CraftArtifact): string => {
@@ -19,24 +22,30 @@ export const inspectArtifact = (artifact: CraftArtifact): string => {
         `Scope: ${artifact.scope.join(', ')}`,
       ].join('\n');
     case 'project_profile': {
-      const technologies = artifact.technologies
-        .map((technology) => technology.name)
-        .join(', ');
+      const technologies =
+        artifact.technologies.map((technology) => technology.name).join(', ') ||
+        'none detected';
+      const modules =
+        artifact.modules
+          .map((module) => `${module.path} (${module.status})`)
+          .join(', ') || 'none detected';
       const observationCounts = artifact.observations.reduce<
         Record<string, number>
       >((counts, observation) => {
         counts[observation.type] = (counts[observation.type] ?? 0) + 1;
         return counts;
       }, {});
-      const observations = Object.entries(observationCounts)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([type, count]) => `${type}: ${count}`)
-        .join(', ');
+      const observations =
+        Object.entries(observationCounts)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([type, count]) => `${type}: ${count}`)
+          .join(', ') || 'none';
       return [
         `Project profile ${artifact.id}: ${artifact.name}`,
         `Technologies: ${technologies}`,
+        `Modules: ${modules}`,
         `Observations: ${observations}`,
-        `${plural(artifact.constraints.length, 'constraint')}; ${plural(artifact.uncertainties.length, 'uncertainty')}`,
+        `${plural(artifact.constraints.length, 'constraint')}; ${plural(artifact.uncertainties.length, 'uncertainty', 'uncertainties')}`,
       ].join('\n');
     }
     case 'project_rule':

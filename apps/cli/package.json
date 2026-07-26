@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@craftcompass/domain": "workspace:*",
+    "@craftcompass/providers-filesystem": "workspace:*",
     "yaml": "2.9.0"
   }
 }

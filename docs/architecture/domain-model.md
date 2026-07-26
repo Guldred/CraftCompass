@@ -74,6 +74,15 @@ It is knowledge, not a project mandate.
 | `ProjectUncertainty` | An unresolved question, its impact, and resolution need             |
 | `ProjectProfile`     | Technologies, modules, observations, constraints, and uncertainties |
 
+Detected `Technology` and `ProjectModule` records carry evidence directly.
+Their lists may be empty for unsupported or malformed repositories; absence is
+not replaced by an `Unknown` technology. Scanner-created modules are candidates
+until a human confirms the boundary and its responsibilities. The optional
+`ProjectModule.architecture_role` is a separate evidence-backed judgment:
+business policy, technical adapter, mixed, or unknown. It has its own
+candidate/confirmed status, confidence, observation references, and evidence.
+A confirmed role must reference a project decision with human-decision evidence.
+
 `ObservationType` is:
 
 ```text
@@ -88,6 +97,11 @@ known_debt
 All observations carry evidence even when their type makes clear that the
 conclusion is uncertain. Confidence is finite and inclusive from `0` to `1`;
 confidence never changes an interpretation into a fact.
+
+`ProjectProfile.adaptation_context` is optional and typed across delivery stage,
+architecture scale, business criticality, architecture intent, and confidence.
+It references observations inside the same profile and must reproduce their
+evidence exactly. Repository scanning does not invent this context.
 
 ## Evidence and provenance
 
@@ -122,8 +136,11 @@ rules remain non-blocking.
 
 Every `ProjectRule` requires:
 
+- one project reference,
 - one or more principle references,
-- project evidence,
+- one or more observation references inside that project,
+- zero or more module references inside that project,
+- exact project evidence contributed by referenced observations and modules,
 - the risk being addressed,
 - confidence,
 - explicit scope and legacy-debt treatment,
@@ -134,6 +151,30 @@ Every `ProjectRule` requires:
 An AI review cannot be blocking unless its `authorization_decision_ref` resolves
 to human-decision evidence on that rule. This implements the product brief's
 prohibition on blocking builds solely through subjective AI judgment.
+
+## Registry and deterministic adaptation
+
+`createArtifactRegistry` consumes validated artifacts paired with logical
+origins. It rejects:
+
+- duplicate or ambiguous top-level artifact IDs,
+- missing or wrong-kind project/principle references,
+- missing project observations or modules,
+- rule evidence that differs from evidence on those observations or modules,
+- missing, ambiguous, or conflicting source references,
+- conflicting definitions that reuse an evidence ID within its scope.
+
+Entries and issues are sorted independently of input order. Identical repeated
+nested evidence/source definitions are allowed. Artifact and source IDs are
+global. Evidence IDs are project-scoped for project-connected artifacts and
+artifact-scoped for standalone reports, so independent projects may use the
+same local evidence ID without colliding.
+
+The first pure derivation recipe handles only the active dependency-direction
+principle. It consumes typed adaptation context rather than parsing prose. It
+produces distinct greenfield, legacy, intentionally simple, or
+`requires_decision` rules. Every generated rule has `status: candidate`, and
+every enforcement option is non-blocking until a human accepts the rule.
 
 ## Exceptions
 
@@ -228,7 +269,7 @@ their counts. Generated count must equal all normalized outcomes, survivor count
 must match the survivor records, and every new ID must resolve to a current
 survivor.
 
-## Provider ports
+## Provider ports and adapters
 
 `CodeGraphProvider` returns evidence-qualified project summaries and change
 impact, including confidence and limitations.
@@ -237,4 +278,8 @@ impact, including confidence and limitations.
 and may return a non-authoritative classification candidate.
 
 Neither interface mentions GitNexus, PIT, Stryker, MCP, files, shell commands, or
-CI. Implementations are deferred.
+CI.
+
+`packages/providers-filesystem` is a separate repository-observation adapter,
+not a code-graph or mutation provider. It maps bounded filesystem evidence into
+`ProjectProfile` without exposing Node paths or parser types in the domain.

@@ -1,6 +1,7 @@
 schema_version: 1
 kind: project_rule
 id: RULE-DOMAIN-DEPENDENCY-001
+project_ref: PROJECT-ORDER-SERVICE
 title: New domain code must not depend on Spring or persistence
 status: active
 level: mandatory
@@ -9,15 +10,25 @@ statement: >
   Spring or persistence APIs.
 principle_refs:
   - ARCH-DEPENDENCY-DIRECTION-001
+observation_refs:
+  - OBS-LAYERED-PACKAGES
+  - OBS-INCREMENTAL-MIGRATION
+  - OBS-DOMAIN-MODULE-ROLES
+module_refs:
+  - order-domain
 evidence:
   - id: EV-SOURCE-LAYOUT
     type: source_file
-    description: Domain and adapter packages are already separated.
+    description: Domain and adapter packages are separated.
     location: src/main/java/example/order
   - id: EV-ADR-MIGRATION
     type: human_decision
     description: The team accepted baseline-and-ratcheting migration.
     location: docs/decisions/architecture-migration.md
+  - id: EV-DOMAIN-MODULE-ROLES
+    type: human_decision
+    description: The team confirmed the domain and adapter module roles.
+    location: docs/decisions/order-module-roles.md
 risk: >
   New technical dependencies would spread infrastructure concerns into business
   policy and increase future change impact.

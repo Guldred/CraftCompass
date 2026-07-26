@@ -46,17 +46,19 @@ semantic changes. The first-class policy is:
 Human review remains risk-based. Schema version 1 supports Review Levels 0, 1,
 and 2 only; Level 3 is deliberately not representable.
 
-## Current foundation slice
+## Current working slices
 
-This repository currently proves one narrow end-to-end path:
+The repository now supports two usable evidence-first workflows:
 
 ```text
-YAML artifact
-  -> filesystem/YAML CLI adapter
-  -> kind and schema-version detection
-  -> provider-independent domain validation
-  -> semantic policy checks
-  -> clear validation result or concise inspection summary
+repository
+  -> safe manifest inspection
+  -> evidence-linked candidate project profile
+
+artifact paths/directories
+  -> strict YAML loading and domain validation
+  -> cross-artifact reference registry
+  -> deterministic candidate rule derivation
 ```
 
 Implemented artifacts:
@@ -68,8 +70,20 @@ Implemented artifacts:
 - quality-gate and mutation contracts,
 - `CodeGraphProvider` and `MutationTestingProvider` ports.
 
-The core does not scan repositories, call an LLM, query GitNexus, execute
-mutation tools, generate rules, or run quality gates yet.
+Implemented behavior:
+
+- safe, deterministic Java/Maven and TypeScript/package-manager observation,
+- honest partial profiles for malformed or unsupported repositories,
+- evidence links for every detected technology and candidate module,
+- bounded recursive YAML artifact loading with canonical input roots and no
+  traversal through artifact or descendant symlinks,
+- globally unique artifact IDs plus
+  project/principle/observation/module/source/evidence reference resolution,
+- deterministic dependency-direction candidates for greenfield, legacy,
+  intentionally simple, and undecided contexts.
+
+CraftCompass does not call an LLM, query a real code graph, execute mutation
+tools, or run quality gates yet.
 
 ## Requirements
 
@@ -100,6 +114,29 @@ Inspect a valid artifact:
 
 ```bash
 pnpm craft inspect fixtures/valid/mutation-report-with-survivor.yaml
+```
+
+Scan a repository into a candidate project profile:
+
+```bash
+pnpm craft project scan fixtures/repositories/java-spring-service
+```
+
+Validate a connected artifact set. Inputs may be YAML files or directories:
+
+```bash
+pnpm craft registry validate \
+  knowledge/principles/dependency-direction.yaml \
+  fixtures/valid/java-spring-project-profile.yaml
+```
+
+Derive a non-blocking candidate rule:
+
+```bash
+pnpm craft derive dependency-direction \
+  PROJECT-ORDER-SERVICE \
+  knowledge/principles/dependency-direction.yaml \
+  fixtures/valid/java-spring-project-profile.yaml
 ```
 
 The `pnpm craft` development shortcut builds first. After `pnpm build`, the
@@ -143,7 +180,8 @@ important domain behavior.
 ├── apps/
 │   └── cli/                  # Filesystem, YAML, terminal, and exit-code adapter
 ├── packages/
-│   └── domain/               # Pure domain contracts, validation, and ports
+│   ├── domain/               # Pure contracts, registry, and derivation
+│   └── providers-filesystem/ # Safe repository observation adapter
 ├── knowledge/
 │   ├── current-positions/
 │   └── principles/
@@ -156,14 +194,16 @@ important domain behavior.
     └── product/
 ```
 
-Future packages are documented rather than created empty. The only runtime
-dependency direction is:
+The runtime dependency direction is:
 
 ```text
-CLI -> domain -> Zod
+CLI -> providers-filesystem -> domain -> Zod
+CLI ------------------------> domain
 ```
 
-The CLI additionally depends on Node filesystem APIs and the YAML parser.
+The CLI owns artifact-file traversal and YAML. The filesystem provider owns
+repository paths, manifest reading, and structural XML/JSON parsing. The domain
+imports neither.
 
 ## Architecture documentation
 
@@ -174,20 +214,19 @@ The CLI additionally depends on Node filesystem APIs and the YAML parser.
 - [ADR 0002: Provider-independent core](docs/decisions/0002-provider-independent-core.md)
 - [ADR 0003: Knowledge maturity separation](docs/decisions/0003-knowledge-maturity-separation.md)
 - [ADR 0004: No global mutation score](docs/decisions/0004-no-global-mutation-score.md)
+- [ADR 0005: Evidence-first repository observation](docs/decisions/0005-evidence-first-repository-observation.md)
+- [ADR 0006: Unreleased schema refinement and deterministic adaptation](docs/decisions/0006-unreleased-v1-and-deterministic-adaptation.md)
 
 ## Deferred work
 
-The recommended next slice is basic repository technology detection. A
-filesystem adapter can produce real, evidence-linked `ProjectObservation` and
-`ProjectProfile` artifacts without yet introducing code graphs, LLM reasoning,
-mutation execution, or rule derivation.
+The next slice exercises change-impact behavior through a deterministic fake
+code-graph provider before a real GitNexus integration.
 
 Also deferred:
 
-- multi-file artifact registries and reference resolution,
 - repository and Git diff analysis,
 - fake and real code-graph providers,
-- project-rule derivation and generated instructions,
+- broader project-rule derivation and generated instructions,
 - mutation report adapters and baseline comparison behavior,
 - quality-gate orchestration and evidence ledgers,
 - MCP, CI, GitHub, and GitLab adapters,

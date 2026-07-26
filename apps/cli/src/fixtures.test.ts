@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import {
+  createArtifactRegistry,
   parseArtifact,
   QualityGateResultSchema,
   validateArtifact,
@@ -215,6 +216,74 @@ describe('versioned YAML artifacts', () => {
     },
   );
 
+  it('requires adaptation context to reproduce all referenced observation evidence', async () => {
+    const profile = (await loadValidArtifact(
+      'fixtures/valid/java-spring-project-profile.yaml',
+    )) as ProjectProfile;
+    const input = structuredClone(profile);
+    expect(input.adaptation_context).toBeDefined();
+    if (input.adaptation_context === undefined) {
+      return;
+    }
+    input.adaptation_context.evidence = input.adaptation_context.evidence.slice(
+      0,
+      1,
+    );
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.adaptation_context.evidence',
+            message:
+              'Adaptation context must include all evidence from its referenced observations',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('requires a semantic module role to reproduce its observation evidence', async () => {
+    const profile = (await loadValidArtifact(
+      'fixtures/valid/java-spring-project-profile.yaml',
+    )) as ProjectProfile;
+    const input = structuredClone(profile);
+    const role = input.modules[0]?.architecture_role;
+    expect(role).toBeDefined();
+    if (role === undefined) {
+      return;
+    }
+    role.evidence[0] = {
+      id: 'EV-UNRELATED-ROLE',
+      type: 'human_decision',
+      description: 'An unrelated role decision.',
+      location: 'docs/decisions/unrelated-role.md',
+    };
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.modules[0].architecture_role.evidence[0]',
+            message:
+              'Module-role evidence must come from its referenced observations',
+          }),
+          expect.objectContaining({
+            path: '$.modules[0].architecture_role.evidence',
+            message:
+              'A module role must include all evidence from its referenced observations',
+          }),
+        ]),
+      );
+    }
+  });
+
   it.each([0, 1, 2] as const)(
     'accepts supported Review Level %s',
     async (reviewLevel) => {
@@ -303,36 +372,27 @@ describe('versioned YAML artifacts', () => {
     },
   );
 
-  it('keeps the eight fixtures connected without adding a registry abstraction', async () => {
+  it('resolves all supported references across the eight fixtures', async () => {
     const artifacts = await Promise.all(
       validFixtures.map(({ path: relativePath }) =>
         loadValidArtifact(relativePath),
       ),
     );
-    const ids = new Set(artifacts.map((artifact) => artifact.id));
-    const rule = artifacts.find(
-      (artifact): artifact is ProjectRule => artifact.kind === 'project_rule',
-    );
-    const profile = artifacts.find(
-      (artifact): artifact is ProjectProfile =>
-        artifact.kind === 'project_profile',
-    );
-    const assuranceArtifacts = artifacts.filter(
-      (artifact) =>
-        artifact.kind === 'assurance_profile' ||
-        artifact.kind === 'assurance_plan',
+    const registry = createArtifactRegistry(
+      artifacts.map((artifact) => ({
+        origin: `fixture:${artifact.id}`,
+        artifact,
+      })),
     );
 
-    expect(rule).toBeDefined();
-    expect(profile).toBeDefined();
-    expect(rule?.principle_refs.every((reference) => ids.has(reference))).toBe(
-      true,
+    expect(registry).toEqual(
+      expect.objectContaining({
+        success: true,
+      }),
     );
-    expect(
-      assuranceArtifacts.every(
-        (artifact) => artifact.project_ref === profile?.id,
-      ),
-    ).toBe(true);
+    if (registry.success) {
+      expect(registry.registry.entries).toHaveLength(artifacts.length);
+    }
   });
 
   it('rejects a blocking AI judgment without explicit human-decision evidence', async () => {
@@ -433,7 +493,10 @@ describe('versioned YAML artifacts', () => {
       'fixtures/valid/java-spring-project-profile.yaml',
     )) as ProjectProfile;
     const input = structuredClone(profile);
-    const decision = input.observations[4];
+    const decisionIndex = input.observations.findIndex(
+      (observation) => observation.id === 'OBS-INCREMENTAL-MIGRATION',
+    );
+    const decision = input.observations[decisionIndex];
     expect(decision?.type).toBe('decision');
     if (decision === undefined) {
       return;
@@ -452,7 +515,7 @@ describe('versioned YAML artifacts', () => {
       expect(result.issues).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            path: '$.observations[4].evidence',
+            path: `$.observations[${decisionIndex}].evidence`,
             message: 'A decision observation requires human-decision evidence',
           }),
         ]),
@@ -471,6 +534,7 @@ describe('versioned YAML artifacts', () => {
       return;
     }
     input.observations.push(structuredClone(firstObservation));
+    const duplicateIndex = input.observations.length - 1;
 
     const result = validateArtifact(input, { now: VALIDATION_DATE });
 
@@ -479,7 +543,7 @@ describe('versioned YAML artifacts', () => {
       expect(result.issues).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            path: '$.observations[6].id',
+            path: `$.observations[${duplicateIndex}].id`,
             message: 'Observation IDs must be unique',
           }),
         ]),

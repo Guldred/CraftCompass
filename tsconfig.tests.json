@@ -4,7 +4,10 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"],
     "paths": {
-      "@craftcompass/domain": ["./packages/domain/src/index.ts"]
+      "@craftcompass/domain": ["./packages/domain/src/index.ts"],
+      "@craftcompass/providers-filesystem": [
+        "./packages/providers-filesystem/src/index.ts"
+      ]
     }
   },
   "include": ["apps/**/*.test.ts", "packages/**/*.test.ts", "vitest.config.ts"]

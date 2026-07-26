@@ -7,7 +7,10 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo",
     "types": ["node"],
     "paths": {
-      "@craftcompass/domain": ["../../packages/domain/src/index.ts"]
+      "@craftcompass/domain": ["../../packages/domain/src/index.ts"],
+      "@craftcompass/providers-filesystem": [
+        "../../packages/providers-filesystem/src/index.ts"
+      ]
     }
   },
   "include": ["src/**/*.ts"],
@@ -15,6 +18,9 @@
   "references": [
     {
       "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/providers-filesystem"
     }
   ]
 }

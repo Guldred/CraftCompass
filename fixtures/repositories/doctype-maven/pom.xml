@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+  <!ENTITY unsafe SYSTEM "file:///etc/passwd">
+]>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>example.craftcompass</groupId>
+  <artifactId>unsafe-doctype</artifactId>
+  <version>&unsafe;</version>
+</project>

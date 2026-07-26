@@ -6,6 +6,7 @@ import {
   EvidenceReferenceListSchema,
   NonEmptyStringSchema,
   SUPPORTED_SCHEMA_VERSION,
+  UniqueArtifactIdListSchema,
   UniqueStringListSchema,
 } from './common.js';
 import { duplicateIndexesBy } from './schema-helpers.js';
@@ -122,7 +123,8 @@ const ProjectUncertaintyListSchema = z
     );
   });
 
-const TechnologySchema = z.strictObject({
+/** Evidence-linked technology declaration observed in repository configuration. */
+export const TechnologySchema = z.strictObject({
   category: z.enum([
     'language',
     'framework',
@@ -133,7 +135,11 @@ const TechnologySchema = z.strictObject({
   ]),
   name: NonEmptyStringSchema,
   version: NonEmptyStringSchema.optional(),
+  evidence: EvidenceReferenceListSchema.min(1),
 });
+
+/** A declared technology with the evidence used to detect it. */
+export type Technology = z.infer<typeof TechnologySchema>;
 
 const TechnologyListSchema = z
   .array(TechnologySchema)
@@ -150,11 +156,41 @@ const TechnologyListSchema = z
     });
   });
 
-const ProjectModuleSchema = z.strictObject({
+/** Evidence-backed semantic role assigned separately from a module boundary. */
+export const ProjectModuleRoleSchema = z
+  .strictObject({
+    value: z.enum(['business_policy', 'technical_adapter', 'mixed', 'unknown']),
+    status: z.enum(['candidate', 'confirmed']),
+    confidence: ConfidenceSchema,
+    observation_refs: UniqueArtifactIdListSchema.min(1),
+    evidence: EvidenceReferenceListSchema.min(1),
+  })
+  .superRefine((role, context) => {
+    if (
+      role.status === 'confirmed' &&
+      !role.evidence.some((evidence) => evidence.type === 'human_decision')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'A confirmed semantic module role requires human-decision evidence',
+        path: ['evidence'],
+      });
+    }
+  });
+
+/** Candidate or confirmed project boundary backed by repository evidence. */
+export const ProjectModuleSchema = z.strictObject({
   name: NonEmptyStringSchema,
   path: NonEmptyStringSchema,
-  responsibilities: UniqueStringListSchema.min(1),
+  status: z.enum(['candidate', 'confirmed']),
+  architecture_role: ProjectModuleRoleSchema.optional(),
+  responsibilities: UniqueStringListSchema,
+  evidence: EvidenceReferenceListSchema.min(1),
 });
+
+/** One evidence-linked source or module boundary. */
+export type ProjectModule = z.infer<typeof ProjectModuleSchema>;
 
 const ProjectModuleListSchema = z
   .array(ProjectModuleSchema)
@@ -175,18 +211,202 @@ const ProjectModuleListSchema = z
     });
   });
 
-/** Evidence-aware normalized description of a project and its constraints. */
-export const ProjectProfileSchema = z.strictObject({
-  schema_version: z.literal(SUPPORTED_SCHEMA_VERSION),
-  kind: z.literal('project_profile'),
-  id: ArtifactIdSchema,
-  name: NonEmptyStringSchema,
-  technologies: TechnologyListSchema.min(1),
-  modules: ProjectModuleListSchema.min(1),
-  observations: ProjectObservationListSchema.min(1),
-  constraints: ProjectConstraintListSchema,
-  uncertainties: ProjectUncertaintyListSchema,
+/** Explicit context used for deterministic, proportionate rule adaptation. */
+export const AdaptationContextSchema = z.strictObject({
+  delivery_stage: z.enum(['greenfield', 'evolving', 'legacy', 'unknown']),
+  architecture_scale: z.enum([
+    'simple_application',
+    'modular_system',
+    'distributed_system',
+    'unknown',
+  ]),
+  business_criticality: z.enum([
+    'low',
+    'medium',
+    'high',
+    'critical',
+    'unknown',
+  ]),
+  architecture_intent: z.enum(['explicit', 'inferred', 'unknown']),
+  confidence: ConfidenceSchema,
+  observation_refs: z
+    .array(ArtifactIdSchema)
+    .min(1)
+    .superRefine((references, context) => {
+      duplicateIndexesBy(references, (reference) => reference).forEach(
+        (index) => {
+          context.addIssue({
+            code: 'custom',
+            message: 'Adaptation-context observation references must be unique',
+            path: [index],
+          });
+        },
+      );
+    }),
+  evidence: EvidenceReferenceListSchema.min(1),
 });
+
+/** Human- or evidence-supplied context; it is never guessed from naming alone. */
+export type AdaptationContext = z.infer<typeof AdaptationContextSchema>;
+
+/** Evidence-aware normalized description of a project and its constraints. */
+export const ProjectProfileSchema = z
+  .strictObject({
+    schema_version: z.literal(SUPPORTED_SCHEMA_VERSION),
+    kind: z.literal('project_profile'),
+    id: ArtifactIdSchema,
+    name: NonEmptyStringSchema,
+    technologies: TechnologyListSchema,
+    modules: ProjectModuleListSchema,
+    observations: ProjectObservationListSchema.min(1),
+    constraints: ProjectConstraintListSchema,
+    uncertainties: ProjectUncertaintyListSchema,
+    adaptation_context: AdaptationContextSchema.optional(),
+  })
+  .superRefine((profile, context) => {
+    const observations = new Map(
+      profile.observations.map((observation) => [observation.id, observation]),
+    );
+    profile.modules.forEach((module, moduleIndex) => {
+      const role = module.architecture_role;
+      if (role === undefined) {
+        return;
+      }
+      const roleEvidence = new Map(
+        role.evidence.map((evidence) => [evidence.id, evidence]),
+      );
+      const referencedRoleEvidence = new Map<
+        string,
+        (typeof role.evidence)[number]
+      >();
+      role.observation_refs.forEach((reference, referenceIndex) => {
+        const observation = observations.get(reference);
+        if (observation === undefined) {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'A module role must reference an observation in this profile',
+            path: [
+              'modules',
+              moduleIndex,
+              'architecture_role',
+              'observation_refs',
+              referenceIndex,
+            ],
+          });
+          return;
+        }
+        observation.evidence.forEach((evidence) => {
+          referencedRoleEvidence.set(evidence.id, evidence);
+        });
+      });
+      const referencesDecision = role.observation_refs.some(
+        (reference) => observations.get(reference)?.type === 'decision',
+      );
+      if (role.status === 'confirmed' && !referencesDecision) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'A confirmed semantic module role must reference a project decision',
+          path: [
+            'modules',
+            moduleIndex,
+            'architecture_role',
+            'observation_refs',
+          ],
+        });
+      }
+      role.evidence.forEach((evidence, evidenceIndex) => {
+        const referenced = referencedRoleEvidence.get(evidence.id);
+        if (
+          referenced === undefined ||
+          JSON.stringify(referenced) !== JSON.stringify(evidence)
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'Module-role evidence must come from its referenced observations',
+            path: [
+              'modules',
+              moduleIndex,
+              'architecture_role',
+              'evidence',
+              evidenceIndex,
+            ],
+          });
+        }
+      });
+      referencedRoleEvidence.forEach((evidence, id) => {
+        const reproduced = roleEvidence.get(id);
+        if (
+          reproduced === undefined ||
+          JSON.stringify(reproduced) !== JSON.stringify(evidence)
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'A module role must include all evidence from its referenced observations',
+            path: ['modules', moduleIndex, 'architecture_role', 'evidence'],
+          });
+        }
+      });
+    });
+    if (profile.adaptation_context === undefined) {
+      return;
+    }
+    const referencedEvidence = new Map(
+      profile.adaptation_context.observation_refs.flatMap((reference) => {
+        const observation = observations.get(reference);
+        return observation === undefined
+          ? []
+          : observation.evidence.map((evidence) => [evidence.id, evidence]);
+      }),
+    );
+    profile.adaptation_context.observation_refs.forEach((reference, index) => {
+      if (!observations.has(reference)) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Adaptation context must reference an observation in this profile',
+          path: ['adaptation_context', 'observation_refs', index],
+        });
+      }
+    });
+    profile.adaptation_context.evidence.forEach((evidence, index) => {
+      const referenced = referencedEvidence.get(evidence.id);
+      if (
+        referenced === undefined ||
+        JSON.stringify(referenced) !== JSON.stringify(evidence)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Adaptation-context evidence must come from its referenced observations',
+          path: ['adaptation_context', 'evidence', index],
+        });
+      }
+    });
+    const contextEvidence = new Map(
+      profile.adaptation_context.evidence.map((evidence) => [
+        evidence.id,
+        evidence,
+      ]),
+    );
+    referencedEvidence.forEach((evidence, id) => {
+      const reproduced = contextEvidence.get(id);
+      if (
+        reproduced === undefined ||
+        JSON.stringify(reproduced) !== JSON.stringify(evidence)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Adaptation context must include all evidence from its referenced observations',
+          path: ['adaptation_context', 'evidence'],
+        });
+      }
+    });
+  });
 
 /** A validated provider-neutral project profile artifact. */
 export type ProjectProfile = z.infer<typeof ProjectProfileSchema>;

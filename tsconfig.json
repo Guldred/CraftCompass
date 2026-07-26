@@ -5,6 +5,9 @@
       "path": "./packages/domain"
     },
     {
+      "path": "./packages/providers-filesystem"
+    },
+    {
       "path": "./apps/cli"
     }
   ]

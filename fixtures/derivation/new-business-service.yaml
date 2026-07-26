@@ -1,0 +1,52 @@
+schema_version: 1
+kind: project_profile
+id: PROJECT-PAYMENTS-NEW
+name: payments-service
+technologies: []
+modules:
+  - name: payments-domain
+    path: src/payments/domain
+    status: confirmed
+    architecture_role:
+      value: business_policy
+      status: confirmed
+      confidence: 1
+      observation_refs:
+        - OBS-PAYMENTS-ARCHITECTURE-DECISION
+      evidence:
+        - id: EV-PAYMENTS-ARCHITECTURE-DECISION
+          type: human_decision
+          description: The team accepted an explicit policy-to-adapter dependency direction.
+          location: docs/decisions/payment-boundaries.md
+    responsibilities:
+      - Payment policy and state transitions.
+    evidence:
+      - id: EV-PAYMENTS-MODULE
+        type: source_file
+        description: The accepted project layout reserves a source root for payment policy.
+        location: src/payments/domain
+observations:
+  - id: OBS-PAYMENTS-ARCHITECTURE-DECISION
+    type: decision
+    statement: The new business-critical service will isolate payment policy from technical integrations.
+    confidence: 1
+    evidence:
+      - id: EV-PAYMENTS-ARCHITECTURE-DECISION
+        type: human_decision
+        description: The team accepted an explicit policy-to-adapter dependency direction.
+        location: docs/decisions/payment-boundaries.md
+constraints: []
+uncertainties: []
+adaptation_context:
+  delivery_stage: greenfield
+  architecture_scale: modular_system
+  business_criticality: high
+  architecture_intent: explicit
+  confidence: 0.96
+  observation_refs:
+    - OBS-PAYMENTS-ARCHITECTURE-DECISION
+  evidence:
+    - id: EV-PAYMENTS-ARCHITECTURE-DECISION
+      type: human_decision
+      description: The team accepted an explicit policy-to-adapter dependency direction.
+      location: docs/decisions/payment-boundaries.md

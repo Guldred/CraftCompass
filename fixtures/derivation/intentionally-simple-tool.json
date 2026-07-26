@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "kind": "project_profile",
+  "id": "PROJECT-IMPORT-TOOL",
+  "name": "import-tool",
+  "technologies": [],
+  "modules": [
+    {
+      "name": "import-tool",
+      "path": ".",
+      "status": "confirmed",
+      "architecture_role": {
+        "value": "mixed",
+        "status": "confirmed",
+        "confidence": 1,
+        "observation_refs": ["OBS-SIMPLE-TOOL-DECISION"],
+        "evidence": [
+          {
+            "id": "EV-SIMPLE-TOOL-DECISION",
+            "type": "human_decision",
+            "description": "The owner accepted a deliberately simple application structure.",
+            "location": "docs/decisions/application-scope.md"
+          }
+        ]
+      },
+      "responsibilities": ["Import one internal data format into another."],
+      "evidence": [
+        {
+          "id": "EV-IMPORT-TOOL-ROOT",
+          "type": "source_file",
+          "description": "The application is intentionally contained in one source root.",
+          "location": "."
+        }
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "id": "OBS-SIMPLE-TOOL-DECISION",
+      "type": "decision",
+      "statement": "The low-criticality import utility is intentionally kept as one direct application.",
+      "confidence": 1,
+      "evidence": [
+        {
+          "id": "EV-SIMPLE-TOOL-DECISION",
+          "type": "human_decision",
+          "description": "The owner accepted a deliberately simple application structure.",
+          "location": "docs/decisions/application-scope.md"
+        }
+      ]
+    }
+  ],
+  "constraints": [],
+  "uncertainties": [],
+  "adaptation_context": {
+    "delivery_stage": "evolving",
+    "architecture_scale": "simple_application",
+    "business_criticality": "low",
+    "architecture_intent": "explicit",
+    "confidence": 0.97,
+    "observation_refs": ["OBS-SIMPLE-TOOL-DECISION"],
+    "evidence": [
+      {
+        "id": "EV-SIMPLE-TOOL-DECISION",
+        "type": "human_decision",
+        "description": "The owner accepted a deliberately simple application structure.",
+        "location": "docs/decisions/application-scope.md"
+      }
+    ]
+  }
+}

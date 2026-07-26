@@ -1,0 +1,75 @@
+schema_version: 1
+kind: project_profile
+id: PROJECT-LEGACY-ORDERS
+name: legacy-orders
+technologies: []
+modules:
+  - name: legacy-orders
+    path: src/main/java/example/orders
+    status: confirmed
+    architecture_role:
+      value: mixed
+      status: confirmed
+      confidence: 1
+      observation_refs:
+        - OBS-LEGACY-MODULE-ROLE
+      evidence:
+        - id: EV-LEGACY-MODULE-ROLE
+          type: human_decision
+          description: The team confirmed that business policy and integrations share this legacy source root.
+          location: docs/decisions/legacy-module-role.md
+    responsibilities:
+      - Existing order behavior and technical integrations.
+    evidence:
+      - id: EV-LEGACY-SOURCE-ROOT
+        type: source_file
+        description: Business behavior and technical integrations share the existing source root.
+        location: src/main/java/example/orders
+observations:
+  - id: OBS-LEGACY-MODULE-ROLE
+    type: decision
+    statement: The team confirmed the legacy source root has a mixed business-policy and technical role.
+    confidence: 1
+    evidence:
+      - id: EV-LEGACY-MODULE-ROLE
+        type: human_decision
+        description: The team confirmed that business policy and integrations share this legacy source root.
+        location: docs/decisions/legacy-module-role.md
+  - id: OBS-LEGACY-DEPENDENCY-DEBT
+    type: known_debt
+    statement: Existing business-policy code contains framework and persistence dependencies.
+    confidence: 0.94
+    evidence:
+      - id: EV-LEGACY-DEPENDENCY-DEBT
+        type: source_file
+        description: Existing framework imports occur in business-policy classes.
+        location: src/main/java/example/orders
+  - id: OBS-LEGACY-MIGRATION-DECISION
+    type: decision
+    statement: The team will baseline existing dependency debt and prevent new violations.
+    confidence: 1
+    evidence:
+      - id: EV-LEGACY-MIGRATION-DECISION
+        type: human_decision
+        description: The team accepted baseline-and-ratcheting migration.
+        location: docs/decisions/incremental-architecture.md
+constraints: []
+uncertainties: []
+adaptation_context:
+  delivery_stage: legacy
+  architecture_scale: modular_system
+  business_criticality: high
+  architecture_intent: inferred
+  confidence: 0.8
+  observation_refs:
+    - OBS-LEGACY-DEPENDENCY-DEBT
+    - OBS-LEGACY-MIGRATION-DECISION
+  evidence:
+    - id: EV-LEGACY-DEPENDENCY-DEBT
+      type: source_file
+      description: Existing framework imports occur in business-policy classes.
+      location: src/main/java/example/orders
+    - id: EV-LEGACY-MIGRATION-DECISION
+      type: human_decision
+      description: The team accepted baseline-and-ratcheting migration.
+      location: docs/decisions/incremental-architecture.md

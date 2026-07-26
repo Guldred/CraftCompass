@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>example.craftcompass</groupId>
+  <artifactId>unsafe-modules</artifactId>
+  <version>1.0.0</version>
+  <properties>
+    <java.version>21</java.version>
+  </properties>
+  <modules>
+    <module>../outside-repository</module>
+  </modules>
+</project>

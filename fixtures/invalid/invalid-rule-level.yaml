@@ -1,12 +1,16 @@
 schema_version: 1
 kind: project_rule
 id: RULE-INVALID-LEVEL
+project_ref: PROJECT-ORDER-SERVICE
 title: Invalid rule level
 status: active
 level: universal
 statement: This deliberately uses a rule level that CraftCompass does not support.
 principle_refs:
   - ARCH-DEPENDENCY-DIRECTION-001
+observation_refs:
+  - OBS-LAYERED-PACKAGES
+module_refs: []
 evidence:
   - id: EV-INVALID-RULE
     type: source_file

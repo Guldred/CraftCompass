@@ -27,7 +27,7 @@ Exit criteria:
 
 ## Slice 1: Basic repository technology detection
 
-Status: recommended next.
+Status: complete.
 
 Add one filesystem adapter that observes:
 
@@ -50,7 +50,18 @@ Exit criteria:
   certainty,
 - the domain remains unchanged unless real adapter needs expose a contract gap.
 
+Delivered:
+
+- `packages/providers-filesystem` with bounded JSON/XML manifest parsing,
+- Maven-coordinate and package-manager conflict checks that avoid false facts,
+- evidence-linked technology/module records and honest partial profiles,
+- path, symlink, size, permission, DOCTYPE/entity, and root-escape controls,
+- `craft scan` and `craft project scan`,
+- Java/Maven/Spring/JUnit and TypeScript/pnpm/Vitest fixture repositories.
+
 ## Slice 2: Cross-artifact registry and deterministic derivation fixture
+
+Status: complete.
 
 Add directory loading, reference resolution, and one explicit rule-derivation
 use case over fixtures. Keep derivation deterministic before introducing an LLM.
@@ -62,7 +73,20 @@ Exit criteria:
 - one dependency principle yields different candidate levels for a new service,
   legacy monolith, and intentionally simple tool.
 
+Delivered:
+
+- bounded recursive, sorted, deduplicated, single-document YAML loading with
+  canonical roots and artifact/descendant symlink rejection,
+- deterministic registry issues for artifact, principle, project, observation,
+  module, evidence, and source references,
+- typed, evidence-linked project adaptation context,
+- greenfield, legacy, simple-tool, and requires-decision recipe branches,
+- candidate-only non-blocking output,
+- `craft registry validate` and `craft derive dependency-direction`.
+
 ## Slice 3: Fake code-graph provider
+
+Status: in progress.
 
 Exercise `CodeGraphProvider` with deterministic responses before a GitNexus
 adapter. Add change impact, graph limitations, and scope-confidence behavior.
@@ -74,6 +98,8 @@ Exit criteria:
 - no provider type leaks into domain artifacts.
 
 ## Slice 4: Mutation report parsing and baselines
+
+Status: planned after Slice 3.
 
 Implement a fixture-backed provider adapter parser without executing mutation
 tools initially. Normalize killed, survived, no-coverage, timed-out, and error
@@ -90,7 +116,7 @@ Exit criteria:
 
 - real GitNexus adapter and index-freshness evidence,
 - PIT execution for Maven through an injectable command runner,
-- assurance planning and Review Level 0–2 recommendation,
+- broader assurance planning and Review Level 0–2 recommendation,
 - rule and agent-instruction compilation,
 - evidence-ledger persistence,
 - MCP, CI, GitHub, and GitLab adapters,

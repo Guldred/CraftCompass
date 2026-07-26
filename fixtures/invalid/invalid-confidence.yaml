@@ -5,11 +5,22 @@ name: invalid-confidence
 technologies:
   - category: language
     name: Java
+    evidence:
+      - id: EV-INVALID-TECHNOLOGY
+        type: build_configuration
+        description: Representative Java declaration.
+        location: pom.xml
 modules:
   - name: application
     path: src/main/java
+    status: candidate
     responsibilities:
       - Application behavior.
+    evidence:
+      - id: EV-INVALID-MODULE
+        type: source_file
+        description: Representative application source root.
+        location: src/main/java
 observations:
   - id: OBS-INVALID-CONFIDENCE
     type: interpretation

@@ -1,12 +1,16 @@
 schema_version: 1
 kind: project_rule
 id: RULE-EXPIRED-EXCEPTION
+project_ref: PROJECT-ORDER-SERVICE
 title: Rule with an expired exception
 status: active
 level: mandatory
 statement: New domain code must not depend on persistence.
 principle_refs:
   - ARCH-DEPENDENCY-DIRECTION-001
+observation_refs:
+  - OBS-DOMAIN-JPA-DEBT
+module_refs: []
 evidence:
   - id: EV-EXPIRED-RULE
     type: source_file
