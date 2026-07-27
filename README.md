@@ -90,6 +90,36 @@ pnpm check
 `pnpm check` runs formatting, linting, strict source-and-test type checking,
 tests, and the build.
 
+## Codex skill
+
+The canonical global-skill source lives in
+[`skills/craftcompass`](skills/craftcompass/). After validating and committing
+the checkout, install an immutable content-addressed package:
+
+```bash
+pnpm check
+node skills/craftcompass/scripts/install-global.mjs \
+  install "${CODEX_HOME:-$HOME/.codex}"
+```
+
+The installer refuses dirty source, reruns `pnpm check` inside an isolated
+snapshot of the reviewed commit, creates a self-contained CLI bundle, rejects
+runtime symlinks and external package imports, verifies the full content
+manifest, makes the version read-only before publication, and atomically
+updates an installer-managed global link. It neither builds in nor points
+global skill discovery at the mutable development worktree.
+
+The content hashes protect against corruption, torn updates, and worktree
+drift. They do not authenticate against an attacker who can replace files as
+the same operating-system user; signed skill releases would be a separate
+product decision.
+
+Open a new Codex task after installation, then invoke `$craftcompass`
+explicitly or ask to apply CraftCompass for repository assessment,
+project-rule derivation, an assurance plan, agent instructions, or
+mutation-policy evaluation. The skill runs its own environment preflight and
+never executes commands discovered inside the target repository.
+
 ## CLI
 
 Run commands from the repository root. `pnpm craft` builds before invoking the
@@ -255,6 +285,8 @@ or error-bearing evidence is inconclusive.
 │   └── providers-pitest/
 ├── knowledge/
 ├── fixtures/
+├── skills/
+│   └── craftcompass/
 ├── docs/
 │   ├── architecture/
 │   ├── decisions/

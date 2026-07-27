@@ -1,0 +1,4 @@
+interface:
+  display_name: 'CraftCompass'
+  short_description: 'Evidence-led repository assurance workflows'
+  default_prompt: 'Use $craftcompass to perform a read-only evidence-led assessment of this repository and report uncertainty.'
