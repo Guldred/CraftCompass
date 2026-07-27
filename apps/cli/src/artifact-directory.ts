@@ -1,7 +1,11 @@
 import { lstat, opendir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
-import { validateArtifact, type LocatedArtifact } from '@craftcompass/domain';
+import {
+  validateArtifact,
+  type LocatedArtifact,
+  type ValidationOptions,
+} from '@craftcompass/domain';
 
 import {
   ArtifactFileError,
@@ -10,7 +14,7 @@ import {
 } from './artifact-file.js';
 
 export const MAX_ARTIFACT_INPUT_FILES = 1_000;
-export const MAX_ARTIFACT_INPUT_BYTES = 32 * 1024 * 1024;
+export const MAX_ARTIFACT_INPUT_BYTES = 64 * 1024 * 1024;
 export const MAX_ARTIFACT_DIRECTORY_DEPTH = 32;
 export const MAX_ARTIFACT_TRAVERSAL_ENTRIES = 1_000;
 
@@ -155,6 +159,7 @@ const canonicalizeInput = async (candidate: string): Promise<string> => {
 export const loadArtifactInputs = async (
   inputPaths: readonly string[],
   now: Date,
+  options: Pick<ValidationOptions, 'preserveExpiredExceptions'> = {},
 ): Promise<readonly LocatedArtifact[]> => {
   const state: CollectionState = {
     collected: new Set<string>(),
@@ -175,6 +180,7 @@ export const loadArtifactInputs = async (
   for (const origin of origins) {
     const result = validateArtifact(await readYamlArtifact(origin), {
       now,
+      ...options,
     });
     if (!result.success) {
       const details = result.issues

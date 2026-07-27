@@ -63,6 +63,11 @@ const validFixtures = [
     kind: 'mutation_report',
     id: 'MUTATION-REPORT-FEATURE-482',
   },
+  {
+    path: 'fixtures/valid/mutation-baseline-candidate.yaml',
+    kind: 'mutation_baseline',
+    id: 'MUTATION-BASELINE-ORDER-DOMAIN-CANDIDATE',
+  },
 ] as const;
 
 const invalidFixtures = [
@@ -83,7 +88,7 @@ const invalidFixtures = [
   },
   {
     path: 'fixtures/invalid/invalid-mutation-classification.yaml',
-    issuePath: '$.survivors[0].classification',
+    issuePath: '$.mutations[0].classification',
     code: 'invalid_value',
   },
   {
@@ -372,7 +377,7 @@ describe('versioned YAML artifacts', () => {
     },
   );
 
-  it('resolves all supported references across the eight fixtures', async () => {
+  it('resolves all supported references across the valid fixtures', async () => {
     const artifacts = await Promise.all(
       validFixtures.map(({ path: relativePath }) =>
         loadValidArtifact(relativePath),
@@ -392,6 +397,82 @@ describe('versioned YAML artifacts', () => {
     );
     if (registry.success) {
       expect(registry.registry.entries).toHaveLength(artifacts.length);
+    }
+  });
+
+  it('rejects a mutation baseline whose scope drifts from its source report', async () => {
+    const artifacts = await Promise.all(
+      validFixtures.map(({ path: relativePath }) =>
+        loadValidArtifact(relativePath),
+      ),
+    );
+    const baselineIndex = artifacts.findIndex(
+      (artifact) => artifact.kind === 'mutation_baseline',
+    );
+    const baseline = artifacts[baselineIndex];
+    expect(baseline?.kind).toBe('mutation_baseline');
+    if (baseline?.kind !== 'mutation_baseline') {
+      return;
+    }
+    const changedBaseline = structuredClone(baseline);
+    changedBaseline.scope.primary_targets.push('example.order.Unrelated');
+    artifacts[baselineIndex] = changedBaseline;
+
+    const registry = createArtifactRegistry(
+      artifacts.map((artifact) => ({
+        origin: `fixture:${artifact.id}`,
+        artifact,
+      })),
+    );
+
+    expect(registry.success).toBe(false);
+    if (!registry.success) {
+      expect(registry.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'artifact_content_mismatch',
+            path: '$.scope',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('rejects a mutation baseline that silently omits source mutation debt', async () => {
+    const artifacts = await Promise.all(
+      validFixtures.map(({ path: relativePath }) =>
+        loadValidArtifact(relativePath),
+      ),
+    );
+    const baselineIndex = artifacts.findIndex(
+      (artifact) => artifact.kind === 'mutation_baseline',
+    );
+    const baseline = artifacts[baselineIndex];
+    expect(baseline?.kind).toBe('mutation_baseline');
+    if (baseline?.kind !== 'mutation_baseline') {
+      return;
+    }
+    const changedBaseline = structuredClone(baseline);
+    changedBaseline.entries.pop();
+    artifacts[baselineIndex] = changedBaseline;
+
+    const registry = createArtifactRegistry(
+      artifacts.map((artifact) => ({
+        origin: `fixture:${artifact.id}`,
+        artifact,
+      })),
+    );
+
+    expect(registry.success).toBe(false);
+    if (!registry.success) {
+      expect(registry.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'artifact_content_mismatch',
+            path: '$.entries',
+          }),
+        ]),
+      );
     }
   });
 
@@ -587,18 +668,29 @@ describe('versioned YAML artifacts', () => {
       'fixtures/valid/mutation-report-with-survivor.yaml',
     )) as MutationReport;
     const input = structuredClone(report);
-    const survivor = input.survivors[0];
+    const survivor = input.mutations.find(
+      (mutation) => mutation.outcome === 'survived',
+    );
     expect(survivor).toBeDefined();
-    if (survivor === undefined) {
+    if (survivor === undefined || !('classification' in survivor)) {
       return;
     }
+    survivor.classification = 'accepted_risk';
     survivor.classification_status = 'accepted_exception';
+    survivor.evidence.push({
+      id: 'EV-MUTATION-RISK-ACCEPTANCE',
+      type: 'human_decision',
+      description: 'A human reviewed the proposed risk acceptance.',
+      location: 'decisions/mutation-risk.md',
+    });
 
     const result = validateArtifact(input, { now: VALIDATION_DATE });
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.issues[0]?.path).toBe('$.survivors[0].exception_ref');
+      expect(
+        result.issues.some((issue) => issue.path.includes('exception_ref')),
+      ).toBe(true);
     }
   });
 
@@ -607,9 +699,11 @@ describe('versioned YAML artifacts', () => {
       'fixtures/valid/mutation-report-with-survivor.yaml',
     )) as MutationReport;
     const input = structuredClone(report);
-    const survivor = input.survivors[0];
+    const survivor = input.mutations.find(
+      (mutation) => mutation.outcome === 'survived',
+    );
     expect(survivor).toBeDefined();
-    if (survivor === undefined) {
+    if (survivor === undefined || !('classification' in survivor)) {
       return;
     }
     survivor.classification = 'equivalent';
@@ -623,19 +717,41 @@ describe('versioned YAML artifacts', () => {
     }
   });
 
-  it('rejects duplicate survivor identities', async () => {
+  it('rejects duplicate mutation identities', async () => {
     const report = (await loadValidArtifact(
       'fixtures/valid/mutation-report-with-survivor.yaml',
     )) as MutationReport;
     const input = structuredClone(report);
-    const survivor = input.survivors[0];
-    expect(survivor).toBeDefined();
-    if (survivor === undefined) {
+    const last = input.mutations.at(-1);
+    expect(last).toBeDefined();
+    if (last === undefined) {
       return;
     }
-    input.survivors.push(structuredClone(survivor));
+    input.mutations.push(structuredClone(last));
+    input.totals.errors += 1;
+    input.totals.generated += 1;
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.mutations[5].id',
+            message: 'Mutation record IDs must be unique',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('correlates totals with concrete mutation records', async () => {
+    const report = (await loadValidArtifact(
+      'fixtures/valid/mutation-report-with-survivor.yaml',
+    )) as MutationReport;
+    const input = structuredClone(report);
     input.totals.survived = 2;
-    input.totals.generated = 51;
 
     const result = validateArtifact(input, { now: VALIDATION_DATE });
 
@@ -644,100 +760,144 @@ describe('versioned YAML artifacts', () => {
       expect(result.issues).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            path: '$.survivors[1].id',
-            message: 'Surviving mutant IDs must be unique',
-          }),
-        ]),
-      );
-    }
-  });
-
-  it('rejects impossible baseline survivor counts', async () => {
-    const report = (await loadValidArtifact(
-      'fixtures/valid/mutation-report-with-survivor.yaml',
-    )) as MutationReport;
-    const input = structuredClone(report);
-    expect(input.baseline_comparison).toBeDefined();
-    if (input.baseline_comparison === undefined) {
-      return;
-    }
-    input.baseline_comparison.new_survivors = 2;
-
-    const result = validateArtifact(input, { now: VALIDATION_DATE });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.issues[0]?.path).toBe(
-        '$.baseline_comparison.new_survivors',
-      );
-    }
-  });
-
-  it('correlates baseline counts with concrete survivor identities', async () => {
-    const report = (await loadValidArtifact(
-      'fixtures/valid/mutation-report-with-survivor.yaml',
-    )) as MutationReport;
-
-    expect(report.baseline_comparison).toMatchObject({
-      new_survivors: 1,
-      new_survivor_ids: ['MUTANT-CANCEL-140'],
-      resolved_survivors: 0,
-      resolved_survivor_ids: [],
-    });
-    expect(
-      validateArtifact(structuredClone(report), { now: VALIDATION_DATE })
-        .success,
-    ).toBe(true);
-  });
-
-  it('rejects a baseline new-survivor reference absent from the report', async () => {
-    const report = (await loadValidArtifact(
-      'fixtures/valid/mutation-report-with-survivor.yaml',
-    )) as MutationReport;
-    const input = structuredClone(report);
-    expect(input.baseline_comparison).toBeDefined();
-    if (input.baseline_comparison === undefined) {
-      return;
-    }
-    input.baseline_comparison.new_survivor_ids = ['MUTANT-NOT-CURRENT'];
-
-    const result = validateArtifact(input, { now: VALIDATION_DATE });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.issues).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: '$.baseline_comparison.new_survivor_ids[0]',
-            message: 'A new survivor ID must identify a current survivor',
-          }),
-        ]),
-      );
-    }
-  });
-
-  it('rejects a resolved baseline survivor that remains current', async () => {
-    const report = (await loadValidArtifact(
-      'fixtures/valid/mutation-report-with-survivor.yaml',
-    )) as MutationReport;
-    const input = structuredClone(report);
-    expect(input.baseline_comparison).toBeDefined();
-    if (input.baseline_comparison === undefined) {
-      return;
-    }
-    input.baseline_comparison.resolved_survivors = 1;
-    input.baseline_comparison.resolved_survivor_ids = ['MUTANT-CANCEL-140'];
-
-    const result = validateArtifact(input, { now: VALIDATION_DATE });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.issues).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: '$.baseline_comparison.resolved_survivor_ids[0]',
+            path: '$.totals.survived',
             message:
-              'A resolved survivor ID cannot remain in current survivors',
+              'survived must equal the number of matching mutation records',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('retains every killed, debt, timeout, and error outcome explicitly', async () => {
+    const report = (await loadValidArtifact(
+      'fixtures/valid/mutation-report-with-survivor.yaml',
+    )) as MutationReport;
+
+    expect(report.mutations.map((mutation) => mutation.outcome)).toEqual([
+      'killed',
+      'no_coverage',
+      'survived',
+      'timed_out',
+      'error',
+    ]);
+    expect(report.totals).toEqual({
+      generated: 5,
+      killed: 1,
+      survived: 1,
+      no_coverage: 1,
+      timed_out: 1,
+      errors: 1,
+    });
+  });
+
+  it('rejects positive mutation evidence when debt or indeterminate outcomes remain', async () => {
+    const report = (await loadValidArtifact(
+      'fixtures/valid/mutation-report-with-survivor.yaml',
+    )) as MutationReport;
+    const input = structuredClone(report);
+    const evidence = input.evidence[0];
+    expect(evidence).toBeDefined();
+    if (evidence === undefined) {
+      return;
+    }
+    evidence.status = 'passed';
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.evidence[0].status',
+            message:
+              'Passed mutation evidence requires a complete, non-empty, all-killed run',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('rejects a zero-mutant run presented as positive evidence', async () => {
+    const report = (await loadValidArtifact(
+      'fixtures/valid/mutation-report-with-survivor.yaml',
+    )) as MutationReport;
+    const input = structuredClone(report);
+    input.mutations = [];
+    input.totals = {
+      generated: 0,
+      killed: 0,
+      survived: 0,
+      no_coverage: 0,
+      timed_out: 0,
+      errors: 0,
+    };
+    const evidence = input.evidence[0];
+    expect(evidence).toBeDefined();
+    if (evidence === undefined) {
+      return;
+    }
+    evidence.status = 'passed';
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.evidence[0].status',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('requires partial mutation runs to state a limitation', async () => {
+    const report = (await loadValidArtifact(
+      'fixtures/valid/mutation-report-with-survivor.yaml',
+    )) as MutationReport;
+    const input = structuredClone(report);
+    input.run.completeness = 'partial';
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.run.limitations',
+            message: 'A partial mutation run requires at least one limitation',
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('requires mutation records to use stable lexical order', async () => {
+    const report = (await loadValidArtifact(
+      'fixtures/valid/mutation-report-with-survivor.yaml',
+    )) as MutationReport;
+    const input = structuredClone(report);
+    const first = input.mutations[0];
+    const second = input.mutations[1];
+    if (first === undefined || second === undefined) {
+      return;
+    }
+    input.mutations[0] = second;
+    input.mutations[1] = first;
+
+    const result = validateArtifact(input, { now: VALIDATION_DATE });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: '$.mutations[1].id',
+            message: 'Mutation records must be sorted by ID',
           }),
         ]),
       );

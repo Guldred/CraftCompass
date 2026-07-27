@@ -8,8 +8,12 @@
     "craft": "./bin/craft.mjs"
   },
   "dependencies": {
+    "@craftcompass/assurance-engine": "workspace:*",
     "@craftcompass/domain": "workspace:*",
+    "@craftcompass/instruction-compiler": "workspace:*",
+    "@craftcompass/mutation-engine": "workspace:*",
     "@craftcompass/providers-filesystem": "workspace:*",
+    "@craftcompass/providers-pitest": "workspace:*",
     "yaml": "2.9.0"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "name": "@craftcompass/providers-pitest",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strict, deterministic PIT XML ingestion for CraftCompass.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@craftcompass/domain": "workspace:*",
+    "fast-xml-parser": "5.10.1",
+    "fast-xml-validator": "1.4.0"
+  }
+}

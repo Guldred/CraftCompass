@@ -13,6 +13,53 @@ export const NonEmptyStringSchema = z
     'Must contain non-whitespace text',
   );
 
+/**
+ * Canonical repository-relative path used in portable artifacts.
+ *
+ * Backslashes, absolute roots, empty segments, and dot segments are rejected
+ * instead of being silently normalized by provider-independent domain code.
+ */
+export const RepositoryRelativePathSchema = z
+  .string()
+  .min(1)
+  .max(4096)
+  .refine(
+    (value) => value === value.normalize('NFC') && value === value.trim(),
+    'Must be trimmed and Unicode-normalized',
+  )
+  .refine(
+    (value) =>
+      !value.includes('\\') &&
+      !value.startsWith('/') &&
+      !/^[A-Za-z]:/u.test(value),
+    'Must be a portable relative path using forward slashes',
+  )
+  .refine(
+    (value) =>
+      value
+        .split('/')
+        .every(
+          (segment) =>
+            segment.length > 0 && segment !== '.' && segment !== '..',
+        ),
+    'Must not contain empty, current-directory, or parent-directory segments',
+  )
+  .refine(
+    (value) =>
+      Array.from(value).every((character) => {
+        const codePoint = character.codePointAt(0);
+        return (
+          codePoint !== undefined &&
+          codePoint > 0x1f &&
+          !(codePoint >= 0x7f && codePoint <= 0x9f) &&
+          codePoint !== 0x2028 &&
+          codePoint !== 0x2029 &&
+          !/\p{Cf}/u.test(character)
+        );
+      }),
+    'Must not contain control or formatting characters',
+  );
+
 export const ArtifactIdSchema = z
   .string()
   .regex(

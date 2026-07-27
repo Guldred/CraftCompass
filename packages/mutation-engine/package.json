@@ -1,0 +1,19 @@
+{
+  "name": "@craftcompass/mutation-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic mutation-baseline comparison and policy evaluation for CraftCompass.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@craftcompass/domain": "workspace:*"
+  }
+}

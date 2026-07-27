@@ -1,0 +1,78 @@
+schema_version: 1
+kind: mutation_baseline
+id: MUTATION-BASELINE-ORDER-DOMAIN-CANDIDATE
+project_ref: PROJECT-ORDER-SERVICE
+assurance_profile_ref: ASSURANCE-PROFILE-ORDER-SERVICE
+source_report_ref: MUTATION-REPORT-FEATURE-482
+status: candidate
+provider:
+  id: example-mutation-provider
+  tool_version: 1.0.0
+  normalization_version: example-v1
+  configuration_fingerprint: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+scope:
+  primary_targets:
+    - example.order.domain.OrderCancellationService
+    - example.order.domain.CancellationPolicy
+  supporting_targets:
+    - example.order.domain.RefundDecision
+  relevant_tests:
+    - OrderCancellationServiceTest
+    - OrderCancellationAcceptanceTest
+  confidence: 0.84
+  limitations:
+    - Spring proxy relationships may be incomplete.
+    - Runtime message consumers are outside the static scope.
+source_run:
+  completeness: complete
+  totals:
+    generated: 5
+    killed: 1
+    survived: 1
+    no_coverage: 1
+    timed_out: 1
+    errors: 1
+  limitations: []
+entries:
+  - id: MUTANT-CANCEL-120
+    provider_outcome: NO_COVERAGE
+    outcome: no_coverage
+    operator: VOID_METHOD_CALLS
+    description: Removed the cancellation-audit call.
+    location:
+      provider_source: OrderCancellationService.java
+      file: src/main/java/example/order/domain/OrderCancellationService.java
+      symbol: cancel
+      line: 36
+    classification: unknown
+    classification_status: unresolved
+    action:
+      required: true
+      category: add_test_coverage
+      reason: No selected test exercised this mutation.
+    evidence:
+      - &report-reference
+        id: EV-PIT-REPORT-482
+        type: test_result
+        description: Normalized mutation report for FEATURE-482.
+        location: artifacts/mutations/FEATURE-482.xml
+  - id: MUTANT-CANCEL-140
+    provider_outcome: SURVIVED
+    outcome: survived
+    operator: CONDITIONALS_BOUNDARY
+    description: Changed the cancellation deadline comparison.
+    location:
+      provider_source: CancellationPolicy.java
+      file: src/main/java/example/order/domain/CancellationPolicy.java
+      symbol: mayCancel
+      line: 42
+    classification: test_gap
+    classification_status: candidate
+    explanation: A deadline-boundary scenario appears to be missing and requires review.
+    action:
+      required: true
+      category: investigate_survivor
+      reason: No selected test distinguished this mutation.
+    evidence:
+      - *report-reference
+created_at: 2026-07-26T12:00:00Z

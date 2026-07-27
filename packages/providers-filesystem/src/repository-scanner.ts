@@ -1,4 +1,4 @@
-import { constants, type Dirent } from 'node:fs';
+import { constants, type BigIntStats, type Dirent } from 'node:fs';
 import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -131,8 +131,30 @@ const isMissingFileError = (error: unknown): error is NodeJS.ErrnoException =>
   'code' in error &&
   (error as NodeJS.ErrnoException).code === 'ENOENT';
 
+const assertSupportedFileSystemPlatform = (candidate: string): void => {
+  if (process.platform !== 'linux' && process.platform !== 'darwin') {
+    throw new RepositoryScanError(
+      `Hardened repository scanning currently requires Linux or macOS: ${candidate}`,
+    );
+  }
+};
+
+const sameManifestState = (left: BigIntStats, right: BigIntStats): boolean =>
+  left.dev === right.dev &&
+  left.ino === right.ino &&
+  left.size === right.size &&
+  left.mode === right.mode &&
+  left.nlink === right.nlink &&
+  left.uid === right.uid &&
+  left.gid === right.gid &&
+  left.mtimeNs === right.mtimeNs &&
+  left.ctimeNs === right.ctimeNs;
+
 const nodeRepositoryFileSystem: RepositoryFileSystem = {
-  canonicalize: realpath,
+  canonicalize: (candidate) => {
+    assertSupportedFileSystemPlatform(candidate);
+    return realpath(candidate);
+  },
   inspect: async (candidate) => {
     try {
       const entry = await lstat(candidate);
@@ -148,27 +170,77 @@ const nodeRepositoryFileSystem: RepositoryFileSystem = {
     }
   },
   readBoundedText: async (candidate, maxBytes) => {
+    assertSupportedFileSystemPlatform(candidate);
     let handle;
     try {
-      handle = await open(candidate, constants.O_RDONLY | constants.O_NOFOLLOW);
-      const entry = await handle.stat();
-      if (!entry.isFile()) {
+      const initialPathState = await lstat(candidate, { bigint: true });
+      if (initialPathState.isSymbolicLink()) {
+        throw new RepositoryScanError(
+          `Refusing to follow manifest symlink: ${candidate}`,
+        );
+      }
+      if (!initialPathState.isFile()) {
         throw new RepositoryScanError(
           `Refusing to read a non-regular manifest: ${candidate}`,
         );
       }
-      if (entry.size > maxBytes) {
+      handle = await open(candidate, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const before = await handle.stat({ bigint: true });
+      if (!before.isFile()) {
+        throw new RepositoryScanError(
+          `Refusing to read a non-regular manifest: ${candidate}`,
+        );
+      }
+      if (!sameManifestState(initialPathState, before)) {
+        throw new RepositoryScanError(
+          `Manifest changed before its bounded read began: ${candidate}`,
+        );
+      }
+      if (before.size > BigInt(maxBytes)) {
         throw new RepositoryScanError(
           `Manifest exceeds ${maxBytes} bytes: ${candidate}`,
         );
       }
-      const content = await handle.readFile();
-      if (content.byteLength > maxBytes) {
+      const content = Buffer.allocUnsafe(maxBytes + 1);
+      let totalBytes = 0;
+      while (totalBytes <= maxBytes) {
+        const result = await handle.read(
+          content,
+          totalBytes,
+          maxBytes + 1 - totalBytes,
+          totalBytes,
+        );
+        if (result.bytesRead === 0) {
+          break;
+        }
+        totalBytes += result.bytesRead;
+      }
+      if (totalBytes > maxBytes) {
         throw new RepositoryScanError(
           `Manifest exceeds ${maxBytes} bytes: ${candidate}`,
         );
       }
-      return content.toString('utf8');
+      const after = await handle.stat({ bigint: true });
+      const finalPathState = await lstat(candidate, { bigint: true });
+      if (
+        !sameManifestState(before, after) ||
+        !sameManifestState(after, finalPathState) ||
+        after.size !== BigInt(totalBytes)
+      ) {
+        throw new RepositoryScanError(
+          `Manifest changed during its bounded read: ${candidate}`,
+        );
+      }
+      try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(
+          content.subarray(0, totalBytes),
+        );
+      } catch (error) {
+        throw new RepositoryScanError(
+          `Manifest is not valid UTF-8 text: ${candidate}`,
+          { cause: error },
+        );
+      }
     } finally {
       await handle?.close();
     }

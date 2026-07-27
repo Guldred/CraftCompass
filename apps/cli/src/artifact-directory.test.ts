@@ -72,6 +72,24 @@ describe('artifact input loading', () => {
     );
   });
 
+  it('preserves expired exceptions only when the policy consumer requests them', async () => {
+    const fixture = path.join(
+      REPOSITORY_ROOT,
+      'fixtures/invalid/expired-exception.yaml',
+    );
+
+    await expect(
+      loadArtifactInputs([fixture], VALIDATION_DATE),
+    ).rejects.toThrow('Exception EXCEPTION-EXPIRED-001 expired on 2020-01-01');
+
+    const entries = await loadArtifactInputs([fixture], VALIDATION_DATE, {
+      preserveExpiredExceptions: true,
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.artifact.id).toBe('RULE-EXPIRED-EXCEPTION');
+  });
+
   it('refuses explicit non-YAML files and filesystem symlinks', async () => {
     const readme = path.join(REPOSITORY_ROOT, 'README.md');
     await expect(loadArtifactInputs([readme], VALIDATION_DATE)).rejects.toThrow(
@@ -125,6 +143,25 @@ describe('artifact input loading', () => {
 
       await expect(readYamlArtifact(artifact)).rejects.toThrow(
         `${MAX_ARTIFACT_FILE_BYTES}-byte limit`,
+      );
+    } finally {
+      await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects malformed UTF-8 instead of accepting replacement text', async () => {
+    const temporaryDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'craftcompass-artifacts-'),
+    );
+    const artifact = path.join(temporaryDirectory, 'malformed.yaml');
+    try {
+      await writeFile(
+        artifact,
+        Uint8Array.from([0x6b, 0x3a, 0x20, 0xc3, 0x28]),
+      );
+
+      await expect(readYamlArtifact(artifact)).rejects.toThrow(
+        'Artifact is not valid UTF-8 text',
       );
     } finally {
       await rm(temporaryDirectory, { recursive: true, force: true });

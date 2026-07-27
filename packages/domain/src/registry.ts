@@ -12,12 +12,15 @@ export interface LocatedArtifact {
 export type RegistryIssueCode =
   | 'ambiguous_artifact_reference'
   | 'ambiguous_source_reference'
+  | 'artifact_content_mismatch'
   | 'artifact_scope_mismatch'
   | 'conflicting_evidence_reference'
   | 'conflicting_source_reference'
   | 'duplicate_artifact_id'
   | 'evidence_mismatch'
   | 'missing_artifact_reference'
+  | 'missing_exception_reference'
+  | 'mutation_exception_scope_mismatch'
   | 'missing_module_reference'
   | 'missing_observation_reference'
   | 'missing_rule_evidence'
@@ -138,7 +141,9 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
           artifact.kind === 'assurance_profile' ||
           artifact.kind === 'assurance_plan' ||
           artifact.kind === 'change_context' ||
-          artifact.kind === 'change_impact'
+          artifact.kind === 'change_impact' ||
+          artifact.kind === 'mutation_report' ||
+          artifact.kind === 'mutation_baseline'
         ? `project:${artifact.project_ref}`
         : `artifact:${artifact.id}`;
   switch (artifact.kind) {
@@ -330,12 +335,12 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
       ];
     case 'mutation_report':
       return [
-        ...artifact.survivors.flatMap((survivor, survivorIndex) =>
+        ...artifact.mutations.flatMap((mutation, mutationIndex) =>
           evidenceOccurrences(
             origin,
             scope,
-            `$.survivors[${survivorIndex}].evidence`,
-            survivor.evidence,
+            `$.mutations[${mutationIndex}].evidence`,
+            mutation.evidence,
           ),
         ),
         ...artifact.evidence.flatMap((evidence, evidenceIndex) =>
@@ -346,6 +351,25 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
             evidence.references,
           ),
         ),
+      ];
+    case 'mutation_baseline':
+      return [
+        ...artifact.entries.flatMap((mutation, mutationIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.entries[${mutationIndex}].evidence`,
+            mutation.evidence,
+          ),
+        ),
+        ...(artifact.activation === undefined
+          ? []
+          : evidenceOccurrences(
+              origin,
+              scope,
+              '$.activation.evidence',
+              artifact.activation.evidence,
+            )),
       ];
   }
 };
@@ -454,6 +478,42 @@ const validateArtifactReference = (
   return target;
 };
 
+const validateExceptionArtifactReferences = (
+  owner: LocatedArtifact,
+  exceptions: readonly {
+    readonly applies_to?:
+      | {
+          readonly artifact_refs: readonly string[];
+        }
+      | undefined;
+  }[],
+  basePath: string,
+  artifactsById: ReadonlyMap<string, LocatedArtifact>,
+  duplicateIds: ReadonlySet<string>,
+  issues: RegistryIssue[],
+): void => {
+  exceptions.forEach((exception, exceptionIndex) => {
+    exception.applies_to?.artifact_refs.forEach((reference, referenceIndex) => {
+      const path = `${basePath}[${exceptionIndex}].applies_to.artifact_refs[${referenceIndex}]`;
+      if (duplicateIds.has(reference)) {
+        issues.push({
+          code: 'ambiguous_artifact_reference',
+          origin: owner.origin,
+          path,
+          message: `Artifact reference ${reference} is ambiguous because its ID is duplicated`,
+        });
+      } else if (!artifactsById.has(reference)) {
+        issues.push({
+          code: 'missing_artifact_reference',
+          origin: owner.origin,
+          path,
+          message: `Artifact reference ${reference} does not resolve`,
+        });
+      }
+    });
+  });
+};
+
 const validateRuleEvidence = (
   owner: LocatedArtifact & {
     readonly artifact: Extract<
@@ -558,6 +618,100 @@ const validateRuleEvidence = (
     });
 };
 
+const addContentMismatch = (
+  owner: LocatedArtifact,
+  path: string,
+  message: string,
+  issues: RegistryIssue[],
+): void => {
+  issues.push({
+    code: 'artifact_content_mismatch',
+    origin: owner.origin,
+    path,
+    message,
+  });
+};
+
+const addScopeMismatch = (
+  owner: LocatedArtifact,
+  path: string,
+  message: string,
+  issues: RegistryIssue[],
+): void => {
+  issues.push({
+    code: 'artifact_scope_mismatch',
+    origin: owner.origin,
+    path,
+    message,
+  });
+};
+
+const validateMutationExceptionReferences = (
+  owner: LocatedArtifact,
+  indexedRecords: readonly {
+    readonly record: {
+      readonly id: string;
+      readonly classification_status: string;
+      readonly exception_ref?: string | undefined;
+    };
+    readonly index: number;
+  }[],
+  profile:
+    Extract<CraftArtifact, { readonly kind: 'assurance_profile' }> | undefined,
+  basePath: string,
+  issues: RegistryIssue[],
+): void => {
+  if (profile === undefined) {
+    return;
+  }
+  const exceptionsById = new Map(
+    profile.exception_policy.active_exceptions.map((exception) => [
+      exception.id,
+      exception,
+    ]),
+  );
+  indexedRecords.forEach(({ record, index }) => {
+    if (
+      record.classification_status !== 'accepted_exception' ||
+      record.exception_ref === undefined
+    ) {
+      return;
+    }
+    const exception = exceptionsById.get(record.exception_ref);
+    if (exception === undefined) {
+      issues.push({
+        code: 'missing_exception_reference',
+        origin: owner.origin,
+        path: `${basePath}[${index}].exception_ref`,
+        message: `Mutation exception ${record.exception_ref} is not active in assurance profile ${profile.id}`,
+      });
+    } else if (!exception.applies_to?.mutation_ids.includes(record.id)) {
+      issues.push({
+        code: 'mutation_exception_scope_mismatch',
+        origin: owner.origin,
+        path: `${basePath}[${index}].exception_ref`,
+        message: `Mutation exception ${record.exception_ref} does not explicitly apply to mutation ${record.id}`,
+      });
+    }
+  });
+};
+
+const mutationDebtIdentity = (record: {
+  readonly id: string;
+  readonly outcome: string;
+  readonly provider_outcome: string;
+  readonly operator: string;
+  readonly description: string;
+  readonly location: unknown;
+}): unknown => ({
+  id: record.id,
+  outcome: record.outcome,
+  provider_outcome: record.provider_outcome,
+  operator: record.operator,
+  description: record.description,
+  location: record.location,
+});
+
 const validateCrossArtifactReferences = (
   entries: readonly LocatedArtifact[],
   artifactsById: ReadonlyMap<string, LocatedArtifact>,
@@ -598,6 +752,14 @@ const validateCrossArtifactReferences = (
             issues,
           );
         }
+        validateExceptionArtifactReferences(
+          entry,
+          artifact.exceptions.active_exceptions,
+          '$.exceptions.active_exceptions',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
         break;
       }
       case 'assurance_profile':
@@ -606,6 +768,14 @@ const validateCrossArtifactReferences = (
           '$.project_ref',
           artifact.project_ref,
           'project_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        validateExceptionArtifactReferences(
+          entry,
+          artifact.exception_policy.active_exceptions,
+          '$.exception_policy.active_exceptions',
           artifactsById,
           duplicateIds,
           issues,
@@ -745,10 +915,266 @@ const validateCrossArtifactReferences = (
         }
         break;
       }
+      case 'mutation_report': {
+        validateArtifactReference(
+          entry,
+          '$.project_ref',
+          artifact.project_ref,
+          'project_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const profileEntry = validateArtifactReference(
+          entry,
+          '$.assurance_profile_ref',
+          artifact.assurance_profile_ref,
+          'assurance_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const planEntry = validateArtifactReference(
+          entry,
+          '$.assurance_plan_ref',
+          artifact.assurance_plan_ref,
+          'assurance_plan',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const profile =
+          profileEntry?.artifact.kind === 'assurance_profile'
+            ? profileEntry.artifact
+            : undefined;
+        if (
+          profile !== undefined &&
+          profile.project_ref !== artifact.project_ref
+        ) {
+          addScopeMismatch(
+            entry,
+            '$.assurance_profile_ref',
+            `Mutation-report project ${artifact.project_ref} does not match assurance-profile project ${profile.project_ref}`,
+            issues,
+          );
+        }
+        if (planEntry?.artifact.kind === 'assurance_plan') {
+          const plan = planEntry.artifact;
+          if (plan.project_ref !== artifact.project_ref) {
+            addScopeMismatch(
+              entry,
+              '$.assurance_plan_ref',
+              `Mutation-report project ${artifact.project_ref} does not match assurance-plan project ${plan.project_ref}`,
+              issues,
+            );
+          }
+          if (plan.assurance_profile_ref !== artifact.assurance_profile_ref) {
+            addScopeMismatch(
+              entry,
+              '$.assurance_profile_ref',
+              `Mutation-report assurance profile ${artifact.assurance_profile_ref} does not match assurance-plan profile ${plan.assurance_profile_ref}`,
+              issues,
+            );
+          }
+          if (plan.mutation_scope === undefined) {
+            addContentMismatch(
+              entry,
+              '$.assurance_plan_ref',
+              `Assurance plan ${plan.id} does not define a mutation scope`,
+              issues,
+            );
+          } else if (!referencesEqual(plan.mutation_scope, artifact.scope)) {
+            addContentMismatch(
+              entry,
+              '$.scope',
+              `Mutation-report scope does not match assurance plan ${plan.id}`,
+              issues,
+            );
+          }
+        }
+        validateMutationExceptionReferences(
+          entry,
+          artifact.mutations.flatMap((mutation, index) =>
+            mutation.outcome === 'survived' ||
+            mutation.outcome === 'no_coverage'
+              ? [{ record: mutation, index }]
+              : [],
+          ),
+          profile,
+          '$.mutations',
+          issues,
+        );
+        break;
+      }
+      case 'mutation_baseline': {
+        validateArtifactReference(
+          entry,
+          '$.project_ref',
+          artifact.project_ref,
+          'project_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const profileEntry = validateArtifactReference(
+          entry,
+          '$.assurance_profile_ref',
+          artifact.assurance_profile_ref,
+          'assurance_profile',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const sourceReportEntry = validateArtifactReference(
+          entry,
+          '$.source_report_ref',
+          artifact.source_report_ref,
+          'mutation_report',
+          artifactsById,
+          duplicateIds,
+          issues,
+        );
+        const profile =
+          profileEntry?.artifact.kind === 'assurance_profile'
+            ? profileEntry.artifact
+            : undefined;
+        if (
+          profile !== undefined &&
+          profile.project_ref !== artifact.project_ref
+        ) {
+          addScopeMismatch(
+            entry,
+            '$.assurance_profile_ref',
+            `Mutation-baseline project ${artifact.project_ref} does not match assurance-profile project ${profile.project_ref}`,
+            issues,
+          );
+        }
+        if (sourceReportEntry?.artifact.kind === 'mutation_report') {
+          const sourceReport = sourceReportEntry.artifact;
+          if (sourceReport.project_ref !== artifact.project_ref) {
+            addScopeMismatch(
+              entry,
+              '$.source_report_ref',
+              `Mutation-baseline project ${artifact.project_ref} does not match source-report project ${sourceReport.project_ref}`,
+              issues,
+            );
+          }
+          if (
+            sourceReport.assurance_profile_ref !==
+            artifact.assurance_profile_ref
+          ) {
+            addScopeMismatch(
+              entry,
+              '$.assurance_profile_ref',
+              `Mutation-baseline profile ${artifact.assurance_profile_ref} does not match source-report profile ${sourceReport.assurance_profile_ref}`,
+              issues,
+            );
+          }
+          if (!referencesEqual(sourceReport.provider, artifact.provider)) {
+            addContentMismatch(
+              entry,
+              '$.provider',
+              `Mutation-baseline provider does not match source report ${sourceReport.id}`,
+              issues,
+            );
+          }
+          if (!referencesEqual(sourceReport.scope, artifact.scope)) {
+            addContentMismatch(
+              entry,
+              '$.scope',
+              `Mutation-baseline scope does not match source report ${sourceReport.id}`,
+              issues,
+            );
+          }
+          const expectedSourceRun = {
+            completeness: sourceReport.run.completeness,
+            totals: sourceReport.totals,
+            limitations: sourceReport.run.limitations,
+          };
+          if (!referencesEqual(expectedSourceRun, artifact.source_run)) {
+            addContentMismatch(
+              entry,
+              '$.source_run',
+              `Mutation-baseline source run does not match report ${sourceReport.id}`,
+              issues,
+            );
+          }
+          const sourceDebt = sourceReport.mutations.filter(
+            (mutation) =>
+              mutation.outcome === 'survived' ||
+              mutation.outcome === 'no_coverage',
+          );
+          const sourceById = new Map(
+            sourceDebt.map((mutation) => [mutation.id, mutation]),
+          );
+          artifact.entries.forEach((baselineEntry, index) => {
+            const sourceEntry = sourceById.get(baselineEntry.id);
+            if (sourceEntry === undefined) {
+              addContentMismatch(
+                entry,
+                `$.entries[${index}].id`,
+                `Baseline mutation ${baselineEntry.id} is absent from source report ${sourceReport.id}`,
+                issues,
+              );
+            } else if (
+              !referencesEqual(
+                mutationDebtIdentity(sourceEntry),
+                mutationDebtIdentity(baselineEntry),
+              )
+            ) {
+              addContentMismatch(
+                entry,
+                `$.entries[${index}]`,
+                `Baseline mutation ${baselineEntry.id} does not match its source-report identity and outcome`,
+                issues,
+              );
+            }
+          });
+          const baselineIds = artifact.entries.map((mutation) => mutation.id);
+          const sourceIds = sourceDebt.map((mutation) => mutation.id);
+          if (!referencesEqual(baselineIds, sourceIds)) {
+            addContentMismatch(
+              entry,
+              '$.entries',
+              `Mutation baseline must retain every survivor and no-coverage record from source report ${sourceReport.id}`,
+              issues,
+            );
+          }
+        }
+        validateMutationExceptionReferences(
+          entry,
+          artifact.entries.map((record, index) => ({ record, index })),
+          profile,
+          '$.entries',
+          issues,
+        );
+        if (artifact.superseded_by !== undefined) {
+          const successorEntry = validateArtifactReference(
+            entry,
+            '$.superseded_by',
+            artifact.superseded_by,
+            'mutation_baseline',
+            artifactsById,
+            duplicateIds,
+            issues,
+          );
+          if (
+            successorEntry?.artifact.kind === 'mutation_baseline' &&
+            successorEntry.artifact.project_ref !== artifact.project_ref
+          ) {
+            addScopeMismatch(
+              entry,
+              '$.superseded_by',
+              `Successor baseline ${successorEntry.artifact.id} belongs to project ${successorEntry.artifact.project_ref}`,
+              issues,
+            );
+          }
+        }
+        break;
+      }
       case 'craftsmanship_principle':
       case 'practice_statement':
       case 'project_profile':
-      case 'mutation_report':
         break;
     }
   });
@@ -758,8 +1184,8 @@ const validateCrossArtifactReferences = (
  * Builds a provider-independent registry and validates every currently
  * resolvable cross-artifact reference.
  *
- * Mutation baseline references are intentionally deferred until a baseline
- * artifact kind exists.
+ * Mutation reports and baselines are validated against their project,
+ * assurance policy, plan scope, provider identity, and source run.
  */
 export const createArtifactRegistry = (
   entries: readonly LocatedArtifact[],

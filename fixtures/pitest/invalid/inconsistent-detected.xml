@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations partial="false">
+  <mutation detected="true" status="SURVIVED" numberOfTestsRun="1">
+    <sourceFile>Example.java</sourceFile>
+    <mutatedClass>example.Example</mutatedClass>
+    <mutatedMethod>value</mutatedMethod>
+    <methodDescription>()I</methodDescription>
+    <lineNumber>1</lineNumber>
+    <mutator>example.Mutator</mutator>
+    <indexes><index>1</index></indexes>
+    <blocks><block>0</block></blocks>
+    <killingTest/>
+    <description>Inconsistent detected flag</description>
+  </mutation>
+</mutations>

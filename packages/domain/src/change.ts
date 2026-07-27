@@ -5,6 +5,7 @@ import {
   ConfidenceSchema,
   EvidenceReferenceListSchema,
   NonEmptyStringSchema,
+  RepositoryRelativePathSchema,
   SUPPORTED_SCHEMA_VERSION,
   UniqueStringListSchema,
 } from './common.js';
@@ -75,7 +76,7 @@ export const CodeSymbolSchema = z.strictObject({
     'documentation',
     'unknown',
   ]),
-  file: NonEmptyStringSchema.optional(),
+  file: RepositoryRelativePathSchema.optional(),
   /** Provider-ready class/module target; no string parsing is required downstream. */
   target: NonEmptyStringSchema.optional(),
   confidence: ConfidenceSchema,
@@ -100,20 +101,48 @@ const CodeSymbolListSchema = z
   });
 
 /** One file known to participate in a change. */
-export const ChangedFileSchema = z.strictObject({
-  path: NonEmptyStringSchema,
-  change_type: z.enum(['added', 'modified', 'deleted', 'renamed']),
-  previous_path: NonEmptyStringSchema.optional(),
-  role: z.enum([
-    'production',
-    'test',
-    'generated',
-    'configuration',
-    'documentation',
-    'unknown',
-  ]),
-  evidence: EvidenceReferenceListSchema.min(1),
-});
+export const ChangedFileSchema = z
+  .strictObject({
+    path: RepositoryRelativePathSchema,
+    change_type: z.enum(['added', 'modified', 'deleted', 'renamed']),
+    previous_path: RepositoryRelativePathSchema.optional(),
+    role: z.enum([
+      'production',
+      'test',
+      'generated',
+      'configuration',
+      'documentation',
+      'unknown',
+    ]),
+    evidence: EvidenceReferenceListSchema.min(1),
+  })
+  .superRefine((file, context) => {
+    if (file.change_type === 'renamed' && file.previous_path === undefined) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A renamed file requires previous_path',
+        path: ['previous_path'],
+      });
+    }
+    if (file.change_type !== 'renamed' && file.previous_path !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        message: 'previous_path is only valid for a renamed file',
+        path: ['previous_path'],
+      });
+    }
+    if (
+      file.change_type === 'renamed' &&
+      file.previous_path !== undefined &&
+      file.previous_path === file.path
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A renamed file must change its path',
+        path: ['previous_path'],
+      });
+    }
+  });
 
 /** One normalized changed file. */
 export type ChangedFile = z.infer<typeof ChangedFileSchema>;

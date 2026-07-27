@@ -3,12 +3,33 @@ import {
   DEPENDENCY_DIRECTION_PRINCIPLE_ID,
   deriveDependencyDirectionRule,
   findRegistryArtifact,
+  RepositoryRelativePathSchema,
   validateArtifact,
   type CraftArtifact,
   type LocatedArtifact,
   type ProjectProfile,
+  type ValidationOptions,
 } from '@craftcompass/domain';
+import { deriveAssurancePlan } from '@craftcompass/assurance-engine';
+import {
+  compileAgentInstructions,
+  renderAgentInstructions,
+} from '@craftcompass/instruction-compiler';
+import {
+  createMutationBaseline,
+  evaluateMutationPolicy,
+  type MutationPolicyEvaluation,
+} from '@craftcompass/mutation-engine';
+import {
+  normalizePitMutationRun,
+  parsePitXml,
+  PIT_XML_LIMITS,
+} from '@craftcompass/providers-pitest';
 
+import type {
+  AgentInstructionsCheck,
+  AgentInstructionsInstallResult,
+} from './agent-instructions-file.js';
 import { inspectArtifact } from './inspect.js';
 
 /** Injectable edge dependencies used by the CLI application service. */
@@ -17,9 +38,22 @@ export interface CliDependencies {
   readonly loadArtifacts: (
     paths: readonly string[],
     now: Date,
+    options?: Pick<ValidationOptions, 'preserveExpiredExceptions'>,
   ) => Promise<readonly LocatedArtifact[]>;
   readonly scanRepository: (path: string) => Promise<ProjectProfile>;
   readonly serializeArtifact: (artifact: CraftArtifact) => string;
+  readonly readBytes: (
+    path: string,
+    maximumBytes: number,
+  ) => Promise<Uint8Array>;
+  readonly checkAgentInstructions: (
+    repositoryRoot: string,
+    expectedContent: string,
+  ) => Promise<AgentInstructionsCheck>;
+  readonly installAgentInstructions: (
+    repositoryRoot: string,
+    expectedContent: string,
+  ) => Promise<AgentInstructionsInstallResult>;
   readonly writeOut: (message: string) => void;
   readonly writeError: (message: string) => void;
   readonly now: () => Date;
@@ -32,10 +66,63 @@ const USAGE = [
   '  craft project scan <repository-path>',
   '  craft registry validate <artifact-path>...',
   '  craft derive dependency-direction <project-id> <artifact-path>...',
+  '  craft assurance plan <plan-id> <project-id> <profile-id> <change-id> <impact-id> <artifact-path>...',
+  '  craft instructions render <project-id> <profile-id> <artifact-path>...',
+  '  craft instructions install <repository-root> <project-id> <profile-id> <artifact-path>...',
+  '  craft instructions check <repository-root> <project-id> <profile-id> <artifact-path>...',
+  '  craft mutation import-pit <report-id> <plan-id> <tool-version> <sha256:configuration> <execution-evidence-path> <mutations.xml> <artifact-path>...',
+  '  craft mutation baseline create <baseline-id> <mutation-report-path>',
+  '  craft mutation evaluate <report-id> <baseline-id|-> <profile-id> <artifact-path>...',
 ].join('\n');
 
+const FORMAT_CHARACTER_PATTERN = /\p{Cf}/u;
+
+/**
+ * Keep line-oriented terminal diagnostics inert while leaving ordinary,
+ * printable path text byte-for-byte readable.
+ */
+const escapeTerminalDynamicText = (value: string): string => {
+  let escaped = '';
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint !== undefined &&
+      (codePoint <= 0x1f ||
+        (codePoint >= 0x7f && codePoint <= 0x9f) ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff) ||
+        codePoint === 0x2028 ||
+        codePoint === 0x2029 ||
+        FORMAT_CHARACTER_PATTERN.test(character))
+    ) {
+      escaped += `\\u{${codePoint.toString(16).toUpperCase()}}`;
+    } else {
+      escaped += character;
+    }
+  }
+  return escaped;
+};
+
 const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+  escapeTerminalDynamicText(
+    error instanceof Error ? error.message : String(error),
+  );
+
+const formatTerminalIssue = (issue: {
+  readonly path: string;
+  readonly message: string;
+  readonly code: string;
+}): string =>
+  `${escapeTerminalDynamicText(issue.path)}: ${escapeTerminalDynamicText(
+    issue.message,
+  )} [${escapeTerminalDynamicText(issue.code)}]`;
+
+const parseRepositoryRelativePath = (value: string, label: string): string => {
+  const result = RepositoryRelativePathSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be a normalized repository-relative path`);
+  }
+  return result.data;
+};
 
 const countSourceReferences = (
   references: readonly { readonly source_ref?: string | undefined }[],
@@ -161,8 +248,9 @@ const countSupportedReferences = (artifact: CraftArtifact): number => {
       );
     case 'mutation_report':
       return (
-        artifact.survivors.reduce(
-          (count, survivor) => count + countSourceReferences(survivor.evidence),
+        3 +
+        artifact.mutations.reduce(
+          (count, mutation) => count + countSourceReferences(mutation.evidence),
           0,
         ) +
         artifact.evidence.reduce(
@@ -170,6 +258,16 @@ const countSupportedReferences = (artifact: CraftArtifact): number => {
             count + countSourceReferences(evidence.references),
           0,
         )
+      );
+    case 'mutation_baseline':
+      return (
+        3 +
+        (artifact.superseded_by === undefined ? 0 : 1) +
+        artifact.entries.reduce(
+          (count, mutation) => count + countSourceReferences(mutation.evidence),
+          0,
+        ) +
+        countSourceReferences(artifact.activation?.evidence ?? [])
       );
   }
 };
@@ -186,9 +284,60 @@ const writeRegistryIssues = (
   writeError('Invalid CraftCompass artifact registry:');
   issues.forEach((issue) => {
     writeError(
-      `  ${issue.origin}${issue.path}: ${issue.message} [${issue.code}]`,
+      `  ${escapeTerminalDynamicText(issue.origin)}${formatTerminalIssue(
+        issue,
+      )}`,
     );
   });
+};
+
+const readValidatedArtifact = async (
+  artifactPath: string,
+  dependencies: CliDependencies,
+  now: Date,
+): Promise<CraftArtifact> => {
+  const input = await dependencies.readArtifact(artifactPath);
+  const result = validateArtifact(input, { now });
+  if (!result.success) {
+    const details = result.issues
+      .map((issue) => `${issue.path}: ${issue.message} [${issue.code}]`)
+      .join('; ');
+    throw new Error(
+      `Invalid CraftCompass artifact ${artifactPath}: ${details}`,
+    );
+  }
+  return result.artifact;
+};
+
+const formatMutationEvaluation = (
+  evaluation: MutationPolicyEvaluation,
+): string => {
+  const lines = [
+    `Mutation policy: ${escapeTerminalDynamicText(
+      evaluation.status.toUpperCase(),
+    )}`,
+    `Report: ${escapeTerminalDynamicText(evaluation.reportId)}`,
+    `Baseline: ${escapeTerminalDynamicText(evaluation.baselineId ?? 'none')}`,
+    `Affected mutations: ${
+      evaluation.affectedMutationIds.length === 0
+        ? 'none'
+        : evaluation.affectedMutationIds
+            .map(escapeTerminalDynamicText)
+            .join(', ')
+    }`,
+    'Reasons:',
+    ...evaluation.reasons.map(
+      (reason) =>
+        `- ${escapeTerminalDynamicText(reason.code)}${
+          reason.mutationIds.length === 0
+            ? ''
+            : `: ${reason.mutationIds
+                .map(escapeTerminalDynamicText)
+                .join(', ')}`
+        }`,
+    ),
+  ];
+  return lines.join('\n');
 };
 
 /** Executes one CLI invocation and returns its intended process exit code. */
@@ -196,6 +345,352 @@ export const runCli = async (
   args: readonly string[],
   dependencies: CliDependencies,
 ): Promise<number> => {
+  if (args[0] === 'mutation') {
+    if (args[1] === 'import-pit') {
+      if (
+        args[2] === undefined ||
+        args[3] === undefined ||
+        args[4] === undefined ||
+        args[5] === undefined ||
+        args[6] === undefined ||
+        args[7] === undefined ||
+        args.length < 9
+      ) {
+        dependencies.writeError(USAGE);
+        return 2;
+      }
+      try {
+        const xmlPath = parseRepositoryRelativePath(args[7], 'PIT XML path');
+        const evidencePath = parseRepositoryRelativePath(
+          args[6],
+          'Execution-evidence path',
+        );
+        const now = dependencies.now();
+        const entries = await dependencies.loadArtifacts(args.slice(8), now);
+        const registryResult = createArtifactRegistry(entries);
+        if (!registryResult.success) {
+          writeRegistryIssues(registryResult.issues, dependencies.writeError);
+          return 1;
+        }
+        const planEntry = findRegistryArtifact(
+          registryResult.registry,
+          args[3],
+        );
+        if (planEntry?.artifact.kind !== 'assurance_plan') {
+          dependencies.writeError(
+            `Assurance plan ${escapeTerminalDynamicText(
+              args[3],
+            )} was not found in the artifact registry`,
+          );
+          return 1;
+        }
+        if (planEntry.artifact.mutation_scope === undefined) {
+          dependencies.writeError(
+            `Assurance plan ${escapeTerminalDynamicText(
+              args[3],
+            )} has no mutation scope`,
+          );
+          return 1;
+        }
+        const run = parsePitXml(
+          await dependencies.readBytes(xmlPath, PIT_XML_LIMITS.input_bytes),
+          xmlPath,
+        );
+        const report = normalizePitMutationRun({
+          reportId: args[2],
+          run,
+          plan: planEntry.artifact,
+          capturedAt: now,
+          toolVersion: args[4],
+          executionAttestation: {
+            assurancePlanRef: planEntry.artifact.id,
+            scope: planEntry.artifact.mutation_scope,
+            configurationFingerprint: args[5],
+            evidence: {
+              id: `EV-PIT-EXECUTION:${args[2]}`,
+              type: 'build_configuration',
+              description:
+                'Caller-attested PIT execution configuration for the selected assurance-plan scope.',
+              location: evidencePath,
+              captured_at: now.toISOString().replace(/\.\d{3}Z$/u, 'Z'),
+              provider: 'pitest',
+            },
+          },
+        });
+        dependencies.writeOut(dependencies.serializeArtifact(report));
+        return 0;
+      } catch (error) {
+        dependencies.writeError(errorMessage(error));
+        return 1;
+      }
+    }
+
+    if (args[1] === 'baseline' && args[2] === 'create') {
+      if (args.length !== 5 || args[3] === undefined || args[4] === undefined) {
+        dependencies.writeError(USAGE);
+        return 2;
+      }
+      try {
+        const now = dependencies.now();
+        const report = await readValidatedArtifact(args[4], dependencies, now);
+        if (report.kind !== 'mutation_report') {
+          dependencies.writeError(
+            `Artifact ${escapeTerminalDynamicText(args[4])} is ${report.kind}, not mutation_report`,
+          );
+          return 1;
+        }
+        const baseline = createMutationBaseline({
+          id: args[3],
+          report,
+          createdAt: now,
+        });
+        dependencies.writeOut(dependencies.serializeArtifact(baseline));
+        return 0;
+      } catch (error) {
+        dependencies.writeError(errorMessage(error));
+        return 1;
+      }
+    }
+
+    if (args[1] === 'evaluate') {
+      if (
+        args.length < 6 ||
+        args[2] === undefined ||
+        args[3] === undefined ||
+        args[4] === undefined
+      ) {
+        dependencies.writeError(USAGE);
+        return 2;
+      }
+      try {
+        const now = dependencies.now();
+        const entries = await dependencies.loadArtifacts(args.slice(5), now, {
+          preserveExpiredExceptions: true,
+        });
+        const registryResult = createArtifactRegistry(entries);
+        if (!registryResult.success) {
+          writeRegistryIssues(registryResult.issues, dependencies.writeError);
+          return 1;
+        }
+        const reportEntry = findRegistryArtifact(
+          registryResult.registry,
+          args[2],
+        );
+        const profileEntry = findRegistryArtifact(
+          registryResult.registry,
+          args[4],
+        );
+        const baselineEntry =
+          args[3] === '-'
+            ? undefined
+            : findRegistryArtifact(registryResult.registry, args[3]);
+        if (reportEntry?.artifact.kind !== 'mutation_report') {
+          dependencies.writeError(
+            `Mutation report ${escapeTerminalDynamicText(
+              args[2],
+            )} was not found in the artifact registry`,
+          );
+          return 1;
+        }
+        if (profileEntry?.artifact.kind !== 'assurance_profile') {
+          dependencies.writeError(
+            `Assurance profile ${escapeTerminalDynamicText(
+              args[4],
+            )} was not found in the artifact registry`,
+          );
+          return 1;
+        }
+        if (
+          args[3] !== '-' &&
+          baselineEntry?.artifact.kind !== 'mutation_baseline'
+        ) {
+          dependencies.writeError(
+            `Mutation baseline ${escapeTerminalDynamicText(
+              args[3],
+            )} was not found in the artifact registry`,
+          );
+          return 1;
+        }
+        const evaluation = evaluateMutationPolicy({
+          registry: registryResult.registry,
+          reportId: reportEntry.artifact.id,
+          ...(baselineEntry?.artifact.kind === 'mutation_baseline'
+            ? { baselineId: baselineEntry.artifact.id }
+            : {}),
+          profileId: profileEntry.artifact.id,
+          now,
+        });
+        dependencies.writeOut(formatMutationEvaluation(evaluation));
+        return evaluation.status === 'passed' ? 0 : 1;
+      } catch (error) {
+        dependencies.writeError(errorMessage(error));
+        return 1;
+      }
+    }
+
+    dependencies.writeError(USAGE);
+    return 2;
+  }
+
+  if (args[0] === 'assurance') {
+    if (
+      args[1] !== 'plan' ||
+      args[2] === undefined ||
+      args[3] === undefined ||
+      args[4] === undefined ||
+      args[5] === undefined ||
+      args[6] === undefined ||
+      args.length < 8
+    ) {
+      dependencies.writeError(USAGE);
+      return 2;
+    }
+    try {
+      const entries = await dependencies.loadArtifacts(
+        args.slice(7),
+        dependencies.now(),
+      );
+      const registryResult = createArtifactRegistry(entries);
+      if (!registryResult.success) {
+        writeRegistryIssues(registryResult.issues, dependencies.writeError);
+        return 1;
+      }
+      const project = findRegistryArtifact(registryResult.registry, args[3]);
+      const profile = findRegistryArtifact(registryResult.registry, args[4]);
+      const change = findRegistryArtifact(registryResult.registry, args[5]);
+      const impact = findRegistryArtifact(registryResult.registry, args[6]);
+      const required = [
+        [args[3], 'project_profile', project],
+        [args[4], 'assurance_profile', profile],
+        [args[5], 'change_context', change],
+        [args[6], 'change_impact', impact],
+      ] as const;
+      const missing = required.find(
+        ([, kind, entry]) => entry?.artifact.kind !== kind,
+      );
+      if (missing !== undefined) {
+        dependencies.writeError(
+          `Artifact ${escapeTerminalDynamicText(
+            missing[0],
+          )} was not found as ${escapeTerminalDynamicText(
+            missing[1],
+          )} in the artifact registry`,
+        );
+        return 1;
+      }
+      if (
+        project?.artifact.kind !== 'project_profile' ||
+        profile?.artifact.kind !== 'assurance_profile' ||
+        change?.artifact.kind !== 'change_context' ||
+        impact?.artifact.kind !== 'change_impact'
+      ) {
+        dependencies.writeError(
+          'Could not select the typed assurance-planning inputs',
+        );
+        return 1;
+      }
+      const derivation = deriveAssurancePlan({
+        id: args[2],
+        project: project.artifact,
+        profile: profile.artifact,
+        change: change.artifact,
+        impact: impact.artifact,
+      });
+      if (!derivation.success) {
+        dependencies.writeError('Could not derive an assurance plan:');
+        derivation.issues.forEach((issue) => {
+          dependencies.writeError(`  ${formatTerminalIssue(issue)}`);
+        });
+        return 1;
+      }
+      dependencies.writeOut(dependencies.serializeArtifact(derivation.plan));
+      return 0;
+    } catch (error) {
+      dependencies.writeError(errorMessage(error));
+      return 1;
+    }
+  }
+
+  if (args[0] === 'instructions') {
+    const action = args[1];
+    const renderOnly = action === 'render';
+    const managedFileAction = action === 'install' || action === 'check';
+    const repositoryRoot = managedFileAction ? args[2] : undefined;
+    const projectId = renderOnly ? args[2] : args[3];
+    const profileId = renderOnly ? args[3] : args[4];
+    const artifactOffset = renderOnly ? 4 : 5;
+    if (
+      (!renderOnly && !managedFileAction) ||
+      (managedFileAction && repositoryRoot === undefined) ||
+      projectId === undefined ||
+      profileId === undefined ||
+      args.length <= artifactOffset
+    ) {
+      dependencies.writeError(USAGE);
+      return 2;
+    }
+    try {
+      const now = dependencies.now();
+      if (Number.isNaN(now.getTime())) {
+        throw new Error('CLI clock returned an invalid date');
+      }
+      const entries = await dependencies.loadArtifacts(
+        args.slice(artifactOffset),
+        now,
+      );
+      const registryResult = createArtifactRegistry(entries);
+      if (!registryResult.success) {
+        writeRegistryIssues(registryResult.issues, dependencies.writeError);
+        return 1;
+      }
+      const model = compileAgentInstructions({
+        registry: registryResult.registry,
+        effectiveOn: now.toISOString().slice(0, 10),
+        projectId,
+        assuranceProfileId: profileId,
+      });
+      const content = renderAgentInstructions(model);
+      if (renderOnly) {
+        dependencies.writeOut(content);
+        return 0;
+      }
+      if (repositoryRoot === undefined) {
+        dependencies.writeError(USAGE);
+        return 2;
+      }
+      if (action === 'install') {
+        const result = await dependencies.installAgentInstructions(
+          repositoryRoot,
+          content,
+        );
+        dependencies.writeOut(
+          `Agent instructions ${escapeTerminalDynamicText(
+            result.status,
+          )}: ${escapeTerminalDynamicText(
+            result.filePath,
+          )} (${escapeTerminalDynamicText(result.sha256)})`,
+        );
+        return 0;
+      }
+      const result = await dependencies.checkAgentInstructions(
+        repositoryRoot,
+        content,
+      );
+      const message = `Agent instructions ${escapeTerminalDynamicText(
+        result.status,
+      )}: ${escapeTerminalDynamicText(result.filePath)}`;
+      if (result.status === 'current') {
+        dependencies.writeOut(message);
+        return 0;
+      }
+      dependencies.writeError(message);
+      return 1;
+    } catch (error) {
+      dependencies.writeError(errorMessage(error));
+      return 1;
+    }
+  }
+
   if (args[0] === 'registry') {
     if (args[1] !== 'validate' || args.length < 3) {
       dependencies.writeError(USAGE);
@@ -250,7 +745,9 @@ export const runCli = async (
       );
       if (projectEntry?.artifact.kind !== 'project_profile') {
         dependencies.writeError(
-          `Project profile ${args[2]} was not found in the artifact registry`,
+          `Project profile ${escapeTerminalDynamicText(
+            args[2],
+          )} was not found in the artifact registry`,
         );
         return 1;
       }
@@ -273,9 +770,7 @@ export const runCli = async (
           'Could not derive a dependency-direction rule:',
         );
         derivation.issues.forEach((issue) => {
-          dependencies.writeError(
-            `  ${issue.path}: ${issue.message} [${issue.code}]`,
-          );
+          dependencies.writeError(`  ${formatTerminalIssue(issue)}`);
         });
         return 1;
       }
@@ -323,18 +818,24 @@ export const runCli = async (
 
   const result = validateArtifact(input, { now: dependencies.now() });
   if (!result.success) {
-    dependencies.writeError(`Invalid CraftCompass artifact: ${path}`);
+    dependencies.writeError(
+      `Invalid CraftCompass artifact: ${escapeTerminalDynamicText(path)}`,
+    );
     result.issues.forEach((issue) => {
-      dependencies.writeError(
-        `  ${issue.path}: ${issue.message} [${issue.code}]`,
-      );
+      dependencies.writeError(`  ${formatTerminalIssue(issue)}`);
     });
     return 1;
   }
 
   if (command === 'validate') {
     dependencies.writeOut(
-      `Valid ${result.artifact.kind} ${result.artifact.id} (schema version ${result.artifact.schema_version})`,
+      `Valid ${escapeTerminalDynamicText(
+        result.artifact.kind,
+      )} ${escapeTerminalDynamicText(
+        result.artifact.id,
+      )} (schema version ${escapeTerminalDynamicText(
+        String(result.artifact.schema_version),
+      )})`,
     );
   } else {
     dependencies.writeOut(inspectArtifact(result.artifact));

@@ -8,6 +8,15 @@
       "@craftcompass/assurance-engine": [
         "./packages/assurance-engine/src/index.ts"
       ],
+      "@craftcompass/instruction-compiler": [
+        "./packages/instruction-compiler/src/index.ts"
+      ],
+      "@craftcompass/mutation-engine": [
+        "./packages/mutation-engine/src/index.ts"
+      ],
+      "@craftcompass/providers-pitest": [
+        "./packages/providers-pitest/src/index.ts"
+      ],
       "@craftcompass/providers-filesystem": [
         "./packages/providers-filesystem/src/index.ts"
       ]

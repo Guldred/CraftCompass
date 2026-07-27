@@ -79,17 +79,26 @@ export const inspectArtifact = (artifact: CraftArtifact): string => {
         `${plural(artifact.required_gates.length, 'required gate')}; ${plural(artifact.impacted_flows.length, 'impacted flow')}`,
       ].join('\n');
     case 'mutation_report': {
-      const classifications = artifact.survivors
-        .map(
-          (survivor) =>
-            `${survivor.id}=${survivor.classification}/${survivor.classification_status}`,
+      const classifications = artifact.mutations
+        .flatMap((mutation) =>
+          'classification' in mutation
+            ? [
+                `${mutation.id}=${mutation.outcome}/${mutation.classification}/${mutation.classification_status}`,
+              ]
+            : [],
         )
         .join(', ');
       return [
-        `Mutation report ${artifact.id} from ${artifact.provider}`,
+        `Mutation report ${artifact.id} from ${artifact.provider.id}`,
         `Generated: ${artifact.totals.generated}; killed: ${artifact.totals.killed}; survived: ${artifact.totals.survived}; no coverage: ${artifact.totals.no_coverage}; timed out: ${artifact.totals.timed_out}; errors: ${artifact.totals.errors}`,
-        `Scope confidence: ${artifact.scope.confidence.toFixed(2)}; survivors: ${classifications || 'none'}`,
+        `Run: ${artifact.run.completeness}; scope confidence: ${artifact.scope.confidence.toFixed(2)}; mutation debt: ${classifications || 'none'}`,
       ].join('\n');
     }
+    case 'mutation_baseline':
+      return [
+        `Mutation baseline ${artifact.id} for ${artifact.project_ref}`,
+        `Status: ${artifact.status}; provider: ${artifact.provider.id}; source report: ${artifact.source_report_ref}`,
+        `${plural(artifact.entries.length, 'debt entry')}; source run: ${artifact.source_run.completeness}`,
+      ].join('\n');
   }
 };

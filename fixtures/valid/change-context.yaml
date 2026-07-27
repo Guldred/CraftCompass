@@ -1,0 +1,32 @@
+schema_version: 1
+kind: change_context
+id: CHANGE-ORDER-CANCELLATION
+project_ref: PROJECT-ORDER-SERVICE
+summary: Change the business rule that determines whether an order may be cancelled.
+nature: behavior_changing
+concerns:
+  - business_rule
+  - externally_observable_behavior
+agent_generated_code_share: medium
+changed_files:
+  - path: src/main/java/example/order/domain/OrderCancellationService.java
+    change_type: modified
+    role: production
+    evidence:
+      - &change-evidence
+        id: EV-CHANGE-ORDER-CANCELLATION
+        type: git_change
+        description: Normalized diff for the order-cancellation change.
+        location: git:CHANGE-ORDER-CANCELLATION
+        provider: git
+changed_symbols:
+  - qualified_name: example.order.domain.OrderCancellationService.cancelOrder
+    kind: method
+    role: production
+    file: src/main/java/example/order/domain/OrderCancellationService.java
+    target: example.order.domain.OrderCancellationService
+    confidence: 1
+    evidence:
+      - *change-evidence
+evidence:
+  - *change-evidence

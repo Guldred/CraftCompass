@@ -8,9 +8,16 @@ import {
   deriveDependencyDirectionRule,
   type DependencyDirectionDerivationResult,
 } from './dependency-direction-derivation.js';
-import { AssurancePlanSchema, AssuranceProfileSchema } from './assurance.js';
+import {
+  AssurancePlanSchema,
+  AssuranceProfileSchema,
+  type MutationDebtRecord,
+  MutationDebtRecordSchema,
+  MutationReportSchema,
+} from './assurance.js';
 import type { CraftArtifact } from './artifact.js';
 import { CraftsmanshipPrincipleSchema } from './knowledge.js';
+import { MutationBaselineSchema } from './mutation-baseline.js';
 import { ProjectProfileSchema, type ProjectProfile } from './project.js';
 import {
   createArtifactRegistry,
@@ -184,6 +191,189 @@ const assurancePlanFor = (
     },
     rationale: ['Run deterministic gates before review.'],
   });
+
+const mutationScope = {
+  primary_targets: ['example.Policy'],
+  supporting_targets: [],
+  relevant_tests: ['example.PolicyTest'],
+  confidence: 0.9,
+  limitations: [],
+};
+
+const mutationDebtRecordFor = (description: string): MutationDebtRecord => ({
+  id: 'MUTANT-REGISTRY-1',
+  provider_outcome: 'SURVIVED',
+  outcome: 'survived' as const,
+  operator: 'CONDITIONALS_BOUNDARY',
+  description,
+  location: {
+    provider_source: 'Policy.java',
+    file: 'src/main/java/example/Policy.java',
+    symbol: 'allows',
+    line: 12,
+  },
+  classification: 'test_gap' as const,
+  classification_status: 'candidate' as const,
+  action: {
+    required: true as const,
+    category: 'investigate_survivor' as const,
+    reason: 'The surviving mutation requires investigation.',
+  },
+  evidence: [
+    {
+      id: 'EV-MUTATION-REGISTRY-REPORT',
+      type: 'test_result' as const,
+      description: 'Normalized mutation report for the registry test.',
+      location: 'artifacts/mutations/registry.xml',
+    },
+  ],
+});
+
+const mutationAssurancePlanFor = (
+  projectRef: string,
+): Extract<CraftArtifact, { readonly kind: 'assurance_plan' }> =>
+  AssurancePlanSchema.parse({
+    ...assurancePlanFor(projectRef),
+    mutation_scope: mutationScope,
+  });
+
+const mutationReportFor = (
+  projectRef: string,
+  description: string,
+): Extract<CraftArtifact, { readonly kind: 'mutation_report' }> =>
+  MutationReportSchema.parse({
+    schema_version: 1,
+    kind: 'mutation_report',
+    id: 'MUTATION-REPORT-REGISTRY',
+    project_ref: projectRef,
+    assurance_profile_ref: 'ASSURANCE-PROFILE-REGISTRY',
+    assurance_plan_ref: 'ASSURANCE-PLAN-REGISTRY',
+    provider: {
+      id: 'pitest',
+      tool_version: '1.25.3',
+      normalization_version: 'pitest-xml-v1',
+      configuration_fingerprint:
+        'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    },
+    provider_run_id: 'MUTATION-RUN-REGISTRY',
+    run: {
+      completeness: 'complete',
+      limitations: [],
+    },
+    scope: mutationScope,
+    totals: {
+      generated: 1,
+      killed: 0,
+      survived: 1,
+      no_coverage: 0,
+      timed_out: 0,
+      errors: 0,
+    },
+    mutations: [mutationDebtRecordFor(description)],
+    evidence: [
+      {
+        id: 'ASSURANCE-EVIDENCE-MUTATION-REGISTRY',
+        type: 'mutation_run',
+        status: 'conditional',
+        summary: 'The targeted run contains one surviving mutation.',
+        captured_at: '2026-07-27T12:00:00Z',
+        references: [
+          {
+            id: 'EV-MUTATION-REGISTRY-REPORT',
+            type: 'test_result',
+            description: 'Normalized mutation report for the registry test.',
+            location: 'artifacts/mutations/registry.xml',
+          },
+          {
+            id: 'EV-MUTATION-REGISTRY-CONFIGURATION',
+            type: 'build_configuration',
+            description:
+              'PIT configuration for the selected registry-test scope.',
+            location: 'artifacts/mutations/registry-configuration.json',
+            provider: 'pitest',
+          },
+        ],
+        execution: {
+          tool: 'pitest',
+          version: '1.25.3',
+          invocation:
+            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          run_id: 'MUTATION-RUN-REGISTRY',
+          configuration_evidence_ref: 'EV-MUTATION-REGISTRY-CONFIGURATION',
+          exit_code: 0,
+        },
+      },
+    ],
+  });
+
+const mutationBaselineFor = (
+  projectRef: string,
+  description: string,
+): Extract<CraftArtifact, { readonly kind: 'mutation_baseline' }> =>
+  MutationBaselineSchema.parse({
+    schema_version: 1,
+    kind: 'mutation_baseline',
+    id: 'MUTATION-BASELINE-REGISTRY',
+    project_ref: projectRef,
+    assurance_profile_ref: 'ASSURANCE-PROFILE-REGISTRY',
+    source_report_ref: 'MUTATION-REPORT-REGISTRY',
+    status: 'active',
+    provider: {
+      id: 'pitest',
+      tool_version: '1.25.3',
+      normalization_version: 'pitest-xml-v1',
+      configuration_fingerprint:
+        'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    },
+    scope: mutationScope,
+    source_run: {
+      completeness: 'complete',
+      totals: {
+        generated: 1,
+        killed: 0,
+        survived: 1,
+        no_coverage: 0,
+        timed_out: 0,
+        errors: 0,
+      },
+      limitations: [],
+    },
+    entries: [mutationDebtRecordFor(description)],
+    created_at: '2026-07-27T12:00:00Z',
+    activation: {
+      owner: 'quality-team',
+      reviewed_on: '2026-07-27',
+      decision_ref: 'EV-MUTATION-BASELINE-ACTIVATION',
+      evidence: [
+        {
+          id: 'EV-MUTATION-BASELINE-ACTIVATION',
+          type: 'human_decision',
+          description: 'The team activated the exact mutation baseline.',
+          location: 'decisions/mutation-baseline-registry.md',
+        },
+      ],
+    },
+  });
+
+const mutationRegistryEntriesFor = async (
+  sourceDescription: string,
+  baselineDescription: string,
+): Promise<LocatedArtifact[]> => {
+  const project = await loadProfile('new-business-service.json');
+  return [
+    located('projects/payments.yaml', project),
+    located('assurance/profile.yaml', assuranceProfileFor(project.id)),
+    located('assurance/plan.yaml', mutationAssurancePlanFor(project.id)),
+    located(
+      'assurance/mutation-report.yaml',
+      mutationReportFor(project.id, sourceDescription),
+    ),
+    located(
+      'assurance/mutation-baseline.yaml',
+      mutationBaselineFor(project.id, baselineDescription),
+    ),
+  ];
+};
 
 describe('artifact registry', () => {
   it('resolves project, principle, observation, evidence, and assurance references', async () => {
@@ -560,6 +750,151 @@ describe('artifact registry', () => {
           }),
         ]),
       );
+    }
+  });
+
+  it('accepts matching mutation descriptions in a baseline and its source report', async () => {
+    const description = 'Changed the policy boundary comparison.';
+
+    const result = createArtifactRegistry(
+      await mutationRegistryEntriesFor(description, description),
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('requires persisted configuration evidence for a fingerprinted mutation report', () => {
+    const report = structuredClone(
+      mutationReportFor(
+        'PROJECT-MUTATION-ATTESTATION',
+        'Changed the policy boundary comparison.',
+      ),
+    );
+    const mutationEvidence = report.evidence[0];
+    expect(mutationEvidence?.execution).toBeDefined();
+    if (mutationEvidence?.execution === undefined) {
+      return;
+    }
+    delete mutationEvidence.execution.configuration_evidence_ref;
+
+    const result = MutationReportSchema.safeParse(report);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['evidence', 0, 'execution', 'configuration_evidence_ref'],
+        }),
+      );
+    }
+  });
+
+  it('rejects mutation-description drift between a baseline and its source report', async () => {
+    const result = createArtifactRegistry(
+      await mutationRegistryEntriesFor(
+        'Changed the policy boundary comparison.',
+        'Changed an unrelated description after baseline creation.',
+      ),
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual([
+        {
+          code: 'artifact_content_mismatch',
+          origin: 'assurance/mutation-baseline.yaml',
+          path: '$.entries[0]',
+          message:
+            'Baseline mutation MUTANT-REGISTRY-1 does not match its source-report identity and outcome',
+        },
+      ]);
+    }
+  });
+
+  it('retains original mutation indexes in exception-reference issues', async () => {
+    const description = 'Changed the policy boundary comparison.';
+    const entries = await mutationRegistryEntriesFor(description, description);
+    const reportTemplate = mutationReportFor(
+      entries[0]?.artifact.id ?? 'PROJECT-MISSING',
+      description,
+    );
+    const baselineTemplate = mutationBaselineFor(
+      entries[0]?.artifact.id ?? 'PROJECT-MISSING',
+      description,
+    );
+    const reportReference = mutationDebtRecordFor(description).evidence[0];
+    expect(reportReference).toBeDefined();
+    if (reportReference === undefined) {
+      return;
+    }
+    const acceptedRisk = MutationDebtRecordSchema.parse({
+      ...mutationDebtRecordFor(description),
+      classification: 'accepted_risk',
+      classification_status: 'accepted_exception',
+      exception_ref: 'EX-MISSING-REGISTRY',
+      evidence: [
+        reportReference,
+        {
+          id: 'EV-MUTATION-REGISTRY-RISK-DECISION',
+          type: 'human_decision',
+          description: 'A human accepted this exact mutation risk.',
+          location: 'decisions/mutation-risk-registry.md',
+        },
+      ],
+    });
+    const killed = {
+      id: 'MUTANT-REGISTRY-0',
+      provider_outcome: 'KILLED',
+      outcome: 'killed' as const,
+      operator: 'RETURNS',
+      description: 'Replaced a return value.',
+      location: {
+        provider_source: 'Policy.java',
+        file: 'src/main/java/example/Policy.java',
+        symbol: 'allows',
+        line: 10,
+      },
+      evidence: [reportReference],
+    };
+    const report = MutationReportSchema.parse({
+      ...reportTemplate,
+      totals: {
+        generated: 2,
+        killed: 1,
+        survived: 1,
+        no_coverage: 0,
+        timed_out: 0,
+        errors: 0,
+      },
+      mutations: [killed, acceptedRisk],
+    });
+    const baseline = MutationBaselineSchema.parse({
+      ...baselineTemplate,
+      source_run: {
+        ...baselineTemplate.source_run,
+        totals: report.totals,
+      },
+      entries: [acceptedRisk],
+    });
+    const result = createArtifactRegistry(
+      entries.map((entry) =>
+        entry.artifact.kind === 'mutation_report'
+          ? { ...entry, artifact: report }
+          : entry.artifact.kind === 'mutation_baseline'
+            ? { ...entry, artifact: baseline }
+            : entry,
+      ),
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toContainEqual({
+        code: 'missing_exception_reference',
+        origin: 'assurance/mutation-report.yaml',
+        path: '$.mutations[1].exception_ref',
+        message:
+          'Mutation exception EX-MISSING-REGISTRY is not active in assurance profile ASSURANCE-PROFILE-REGISTRY',
+      });
     }
   });
 

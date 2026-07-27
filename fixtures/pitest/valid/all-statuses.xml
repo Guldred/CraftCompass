@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations partial="false">
+  <mutation detected="false" status="SURVIVED" numberOfTestsRun="3">
+    <sourceFile>src/main/java/example/OrderService.java</sourceFile>
+    <mutatedClass>example.OrderService</mutatedClass>
+    <mutatedMethod>total</mutatedMethod>
+    <methodDescription>(Ljava/util/List;)I</methodDescription>
+    <lineNumber>42</lineNumber>
+    <mutator>org.pitest.mutationtest.engine.gregor.mutators.MathMutator</mutator>
+    <indexes><index>12</index><index>11</index></indexes>
+    <blocks><block>4</block></blocks>
+    <killingTest/>
+    <description>Replaced integer addition with subtraction</description>
+  </mutation>
+  <mutation detected="true" status="KILLED" numberOfTestsRun="2">
+    <sourceFile>src/main/java/example/OrderService.java</sourceFile>
+    <mutatedClass>example.OrderService</mutatedClass>
+    <mutatedMethod>approve</mutatedMethod>
+    <methodDescription>(I)Z</methodDescription>
+    <lineNumber>18</lineNumber>
+    <mutator>org.pitest.mutationtest.engine.gregor.mutators.ConditionalsBoundaryMutator</mutator>
+    <indexes><index>7</index></indexes>
+    <blocks><block>1</block></blocks>
+    <killingTests>example.OrderServiceTest.shouldReject|example.OrderServiceTest.shouldApprove</killingTests>
+    <succeedingTests>example.OrderServiceTest.shouldIgnoreDraft</succeedingTests>
+    <coveringTests>example.OrderServiceTest.shouldReject|example.OrderServiceTest.shouldIgnoreDraft|example.OrderServiceTest.shouldApprove</coveringTests>
+    <description>Changed conditional boundary</description>
+  </mutation>
+  <mutation detected="false" status="NO_COVERAGE" numberOfTestsRun="0">
+    <sourceFile>src/main/java/example/OrderService.java</sourceFile>
+    <mutatedClass>example.OrderService</mutatedClass>
+    <mutatedMethod>archive</mutatedMethod>
+    <methodDescription>()V</methodDescription>
+    <lineNumber>77</lineNumber>
+    <mutator>org.pitest.mutationtest.engine.gregor.mutators.VoidMethodCallMutator</mutator>
+    <indexes><index>31</index></indexes>
+    <blocks><block>8</block></blocks>
+    <killingTest/>
+    <description>Removed call to audit &amp; archive</description>
+  </mutation>
+  <mutation detected="true" status="TIMED_OUT" numberOfTestsRun="1">
+    <sourceFile>src/main/java/example/RetryPolicy.java</sourceFile>
+    <mutatedClass>example.RetryPolicy</mutatedClass>
+    <mutatedMethod>shouldRetry</mutatedMethod>
+    <methodDescription>(I)Z</methodDescription>
+    <lineNumber>29</lineNumber>
+    <mutator>org.pitest.mutationtest.engine.gregor.mutators.IncrementsMutator</mutator>
+    <indexes><index>4</index></indexes>
+    <blocks><block>2</block></blocks>
+    <killingTest/>
+    <description>Changed increment from 1 to -1</description>
+  </mutation>
+  <mutation detected="true" status="NON_VIABLE" numberOfTestsRun="0">
+    <sourceFile>src/main/java/example/BytecodeEdge.java</sourceFile>
+    <mutatedClass>example.BytecodeEdge</mutatedClass>
+    <mutatedMethod>bridge</mutatedMethod>
+    <methodDescription>()Ljava/lang/Object;</methodDescription>
+    <lineNumber>14</lineNumber>
+    <mutator>example.NonViableMutator</mutator>
+    <indexes><index>2</index></indexes>
+    <blocks><block>0</block></blocks>
+    <killingTest/>
+    <description>Generated a mutation the JVM could not load</description>
+  </mutation>
+  <mutation detected="true" status="MEMORY_ERROR" numberOfTestsRun="1">
+    <sourceFile>src/main/java/example/Allocator.java</sourceFile>
+    <mutatedClass>example.Allocator</mutatedClass>
+    <mutatedMethod>allocate</mutatedMethod>
+    <methodDescription>(I)[B</methodDescription>
+    <lineNumber>55</lineNumber>
+    <mutator>example.AllocationMutator</mutator>
+    <indexes><index>9</index></indexes>
+    <blocks><block>3</block></blocks>
+    <killingTest/>
+    <description>Increased allocation size</description>
+  </mutation>
+  <mutation detected="true" status="RUN_ERROR" numberOfTestsRun="1">
+    <sourceFile>src/main/java/example/ProcessRunner.java</sourceFile>
+    <mutatedClass>example.ProcessRunner</mutatedClass>
+    <mutatedMethod>run</mutatedMethod>
+    <methodDescription>()I</methodDescription>
+    <lineNumber>63</lineNumber>
+    <mutator>example.ProcessMutator</mutator>
+    <indexes><index>10</index></indexes>
+    <blocks><block>5</block></blocks>
+    <killingTest/>
+    <description>Changed process termination behavior</description>
+  </mutation>
+  <mutation detected="true" status="EQUIVALENT" numberOfTestsRun="2">
+    <sourceFile>src/main/java/example/Identity.java</sourceFile>
+    <mutatedClass>example.Identity</mutatedClass>
+    <mutatedMethod>value</mutatedMethod>
+    <methodDescription>(I)I</methodDescription>
+    <lineNumber>8</lineNumber>
+    <mutator>example.EquivalentMutator</mutator>
+    <indexes><index>1</index></indexes>
+    <blocks><block>0</block></blocks>
+    <killingTest/>
+    <description>PIT classified this mutation as equivalent</description>
+  </mutation>
+</mutations>

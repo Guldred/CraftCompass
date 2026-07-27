@@ -1,0 +1,75 @@
+schema_version: 1
+kind: mutation_report
+id: MUTATION-REPORT-ALL-KILLED
+project_ref: PROJECT-ORDER-SERVICE
+assurance_profile_ref: ASSURANCE-PROFILE-ORDER-SERVICE
+assurance_plan_ref: ASSURANCE-PLAN-ORDER-CANCELLATION
+provider:
+  id: pitest
+  tool_version: 1.25.3
+  normalization_version: pitest-xml-v1
+  configuration_fingerprint: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+provider_run_id: PIT-RUN-ALL-KILLED
+run:
+  completeness: complete
+  limitations: []
+scope:
+  primary_targets:
+    - example.order.domain.OrderCancellationService
+    - example.order.domain.CancellationPolicy
+  supporting_targets:
+    - example.order.domain.RefundDecision
+  relevant_tests:
+    - OrderCancellationServiceTest
+    - OrderCancellationAcceptanceTest
+  confidence: 0.84
+  limitations:
+    - Spring proxy relationships may be incomplete.
+    - Runtime message consumers are outside the static scope.
+totals:
+  generated: 1
+  killed: 1
+  survived: 0
+  no_coverage: 0
+  timed_out: 0
+  errors: 0
+mutations:
+  - id: PIT-MUTANT-ALL-KILLED
+    provider_outcome: KILLED
+    outcome: killed
+    operator: RETURNS
+    description: Replaced the cancellation result with a default value.
+    location:
+      provider_source: OrderCancellationService.java
+      file: src/main/java/example/order/domain/OrderCancellationService.java
+      symbol: example.order.domain.OrderCancellationService.cancelOrder
+      line: 31
+    evidence:
+      - &report-reference
+        id: EV-PIT-REPORT-ALL-KILLED
+        type: test_result
+        description: Normalized targeted PIT mutation report.
+        location: artifacts/mutations/all-killed.xml
+        captured_at: 2026-07-26T12:00:00Z
+        provider: pitest
+evidence:
+  - id: ASSURANCE-EVIDENCE-PIT-ALL-KILLED
+    type: mutation_run
+    status: passed
+    summary: Every imported PIT mutation was killed by a selected test.
+    captured_at: 2026-07-26T12:00:00Z
+    references:
+      - *report-reference
+      - id: EV-PIT-CONFIGURATION-ALL-KILLED
+        type: build_configuration
+        description: PIT configuration for the selected assurance-plan scope.
+        location: artifacts/mutations/all-killed-configuration.json
+        captured_at: 2026-07-26T12:00:00Z
+        provider: pitest
+    execution:
+      tool: pitest
+      version: 1.25.3
+      invocation: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      run_id: PIT-RUN-ALL-KILLED
+      configuration_evidence_ref: EV-PIT-CONFIGURATION-ALL-KILLED
+      exit_code: 0

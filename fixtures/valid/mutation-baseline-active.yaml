@@ -1,0 +1,46 @@
+schema_version: 1
+kind: mutation_baseline
+id: MUTATION-BASELINE-ORDER-DOMAIN-ACTIVE
+project_ref: PROJECT-ORDER-SERVICE
+assurance_profile_ref: ASSURANCE-PROFILE-ORDER-SERVICE
+source_report_ref: MUTATION-REPORT-ALL-KILLED
+status: active
+provider:
+  id: pitest
+  tool_version: 1.25.3
+  normalization_version: pitest-xml-v1
+  configuration_fingerprint: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+scope:
+  primary_targets:
+    - example.order.domain.OrderCancellationService
+    - example.order.domain.CancellationPolicy
+  supporting_targets:
+    - example.order.domain.RefundDecision
+  relevant_tests:
+    - OrderCancellationServiceTest
+    - OrderCancellationAcceptanceTest
+  confidence: 0.84
+  limitations:
+    - Spring proxy relationships may be incomplete.
+    - Runtime message consumers are outside the static scope.
+source_run:
+  completeness: complete
+  totals:
+    generated: 1
+    killed: 1
+    survived: 0
+    no_coverage: 0
+    timed_out: 0
+    errors: 0
+  limitations: []
+entries: []
+created_at: 2026-07-26T12:00:00Z
+activation:
+  owner: order-platform-team
+  reviewed_on: 2026-07-26
+  decision_ref: EV-MUTATION-BASELINE-ACTIVATION
+  evidence:
+    - id: EV-MUTATION-BASELINE-ACTIVATION
+      type: human_decision
+      description: The team reviewed and activated this exact mutation-debt baseline.
+      location: decisions/mutation-baseline-order-domain.md

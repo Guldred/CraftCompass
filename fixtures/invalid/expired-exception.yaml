@@ -16,6 +16,10 @@ evidence:
     type: source_file
     description: Representative dependency evidence.
     location: src/main/java
+  - id: EV-EXPIRED-RULE-ACTIVATION
+    type: human_decision
+    description: A human activated the rule for this expiration fixture.
+    location: docs/rule-activation.md
 risk: Persistence details can spread into business policy.
 confidence: 0.8
 scope:

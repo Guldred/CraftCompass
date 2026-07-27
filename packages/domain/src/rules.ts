@@ -73,14 +73,43 @@ export const MigrationStrategySchema = z.strictObject({
 /** A documented, proportionate rule-adoption strategy. */
 export type MigrationStrategy = z.infer<typeof MigrationStrategySchema>;
 
-export const RuleExceptionSchema = z.strictObject({
-  id: ArtifactIdSchema,
-  reason: NonEmptyStringSchema,
-  owner: NonEmptyStringSchema,
-  scope: NonEmptyStringSchema,
-  expires_on: IsoDateSchema,
-  evidence: EvidenceReferenceListSchema.min(1),
-});
+/** Machine-readable exception boundary used when prose scope is insufficient. */
+export const ExceptionApplicabilitySchema = z
+  .strictObject({
+    artifact_refs: UniqueArtifactIdListSchema,
+    mutation_ids: UniqueArtifactIdListSchema,
+  })
+  .superRefine((applicability, context) => {
+    if (
+      applicability.artifact_refs.length === 0 &&
+      applicability.mutation_ids.length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Exception applicability requires at least one selector',
+      });
+    }
+  });
+
+export const RuleExceptionSchema = z
+  .strictObject({
+    id: ArtifactIdSchema,
+    reason: NonEmptyStringSchema,
+    owner: NonEmptyStringSchema,
+    scope: NonEmptyStringSchema,
+    applies_to: ExceptionApplicabilitySchema.optional(),
+    expires_on: IsoDateSchema,
+    evidence: EvidenceReferenceListSchema.min(1),
+  })
+  .superRefine((exception, context) => {
+    if (!exception.evidence.some((item) => item.type === 'human_decision')) {
+      context.addIssue({
+        code: 'custom',
+        message: 'An active rule exception requires human-decision evidence',
+        path: ['evidence'],
+      });
+    }
+  });
 
 const RuleExceptionListSchema = z
   .array(RuleExceptionSchema)
@@ -141,6 +170,16 @@ export const ProjectRuleSchema = z
     exceptions: ExceptionPolicySchema,
   })
   .superRefine((rule, context) => {
+    if (
+      rule.status === 'active' &&
+      !rule.evidence.some((item) => item.type === 'human_decision')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'An active project rule requires human-decision evidence',
+        path: ['evidence'],
+      });
+    }
     if (
       (rule.level !== 'mandatory' || rule.status !== 'active') &&
       rule.enforcement.some((item) => item.blocking)

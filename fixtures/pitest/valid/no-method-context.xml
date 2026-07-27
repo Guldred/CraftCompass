@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations partial="false">
+  <mutation detected="false" status="SURVIVED" numberOfTestsRun="1">
+    <sourceFile>src/main/java/example/GeneratedBridge.java</sourceFile>
+    <mutatedClass>example.GeneratedBridge</mutatedClass>
+    <mutatedMethod>bridge</mutatedMethod>
+    <methodDescription>()Ljava/lang/Object;</methodDescription>
+    <lineNumber>0</lineNumber>
+    <mutator>org.pitest.mutationtest.engine.gregor.mutators.returns.EmptyObjectReturnValsMutator</mutator>
+    <indexes><index>1</index></indexes>
+    <blocks><block>0</block></blocks>
+    <killingTest/>
+    <description>Replaced return value with null</description>
+  </mutation>
+</mutations>

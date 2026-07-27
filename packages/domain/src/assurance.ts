@@ -6,6 +6,7 @@ import {
   EvidenceReferenceListSchema,
   IsoDateTimeSchema,
   NonEmptyStringSchema,
+  RepositoryRelativePathSchema,
   SUPPORTED_SCHEMA_VERSION,
   UniqueArtifactIdListSchema,
   UniqueStringListSchema,
@@ -130,7 +131,7 @@ export const MutationPolicySchema = z.strictObject({
 /** Mutation policy that treats survivors as evidence rather than proof or a score. */
 export type MutationPolicy = z.infer<typeof MutationPolicySchema>;
 
-/** Human-reviewed classification of a surviving mutant. */
+/** Human-reviewed classification of mutation debt. */
 export const MutationClassificationSchema = z.enum([
   'test_gap',
   'equivalent',
@@ -142,22 +143,97 @@ export const MutationClassificationSchema = z.enum([
   'unknown',
 ]);
 
-/** Why a mutant may have survived, without implying automatic acceptance. */
+/** Why mutation debt remains, without implying automatic acceptance. */
 export type MutationClassification = z.infer<
   typeof MutationClassificationSchema
 >;
 
-/** One mutation that the relevant tests did not kill. */
-export const SurvivingMutantSchema = z
+/** Canonical digest of the mutation provider configuration and selected scope. */
+export const MutationConfigurationFingerprintSchema = z
+  .string()
+  .regex(
+    /^sha256:[0-9a-f]{64}$/u,
+    'Mutation configuration fingerprint must be lowercase sha256:<64 hex>',
+  );
+
+/** Stable provider identity used to decide whether two runs are comparable. */
+export const MutationProviderIdentitySchema = z.strictObject({
+  id: NonEmptyStringSchema,
+  tool_version: NonEmptyStringSchema.optional(),
+  normalization_version: NonEmptyStringSchema,
+  configuration_fingerprint: MutationConfigurationFingerprintSchema.optional(),
+});
+
+/** Provider and normalization versions associated with one mutation run. */
+export type MutationProviderIdentity = z.infer<
+  typeof MutationProviderIdentitySchema
+>;
+
+/** Completeness declaration for one mutation execution or imported report. */
+export const MutationRunSchema = z
   .strictObject({
-    id: ArtifactIdSchema,
-    operator: NonEmptyStringSchema,
-    description: NonEmptyStringSchema,
-    location: z.strictObject({
-      file: NonEmptyStringSchema,
-      symbol: NonEmptyStringSchema.optional(),
-      line: z.number().int().positive().optional(),
-    }),
+    completeness: z.enum(['complete', 'partial']),
+    limitations: UniqueStringListSchema,
+  })
+  .superRefine((run, context) => {
+    if (run.completeness === 'partial' && run.limitations.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A partial mutation run requires at least one limitation',
+        path: ['limitations'],
+      });
+    }
+  });
+
+/** Explicit run-completeness metadata; partial data is never a silent pass. */
+export type MutationRun = z.infer<typeof MutationRunSchema>;
+
+const MutationLocationSchema = z.strictObject({
+  /**
+   * Source label emitted by the provider. A basename is not silently promoted
+   * to a repository path.
+   */
+  provider_source: NonEmptyStringSchema,
+  /** Resolved repository-relative path, present only when resolution is known. */
+  file: RepositoryRelativePathSchema.optional(),
+  symbol: NonEmptyStringSchema.optional(),
+  // PIT legitimately uses line 0 when no source-line context is available.
+  line: z.number().int().nonnegative().optional(),
+});
+
+const MutationRecordBaseShape = {
+  id: ArtifactIdSchema,
+  provider_outcome: NonEmptyStringSchema,
+  operator: NonEmptyStringSchema,
+  description: NonEmptyStringSchema,
+  location: MutationLocationSchema,
+  evidence: EvidenceReferenceListSchema.min(1),
+} as const;
+
+/** Required follow-up retained for every result not killed by a test. */
+export const MutationActionSchema = z.strictObject({
+  required: z.literal(true),
+  category: z.enum([
+    'investigate_survivor',
+    'add_test_coverage',
+    'investigate_timeout',
+    'investigate_provider_error',
+    'review_equivalent_candidate',
+  ]),
+  reason: NonEmptyStringSchema,
+});
+
+/** A mutation distinguished by at least one test. */
+export const KilledMutationSchema = z.strictObject({
+  ...MutationRecordBaseShape,
+  outcome: z.literal('killed'),
+});
+
+/** A survivor or no-coverage result requiring classification or remediation. */
+export const MutationDebtRecordSchema = z
+  .strictObject({
+    ...MutationRecordBaseShape,
+    outcome: z.enum(['survived', 'no_coverage']),
     classification: MutationClassificationSchema,
     classification_status: z.enum([
       'unresolved',
@@ -167,9 +243,12 @@ export const SurvivingMutantSchema = z
     ]),
     explanation: NonEmptyStringSchema.optional(),
     exception_ref: ArtifactIdSchema.optional(),
-    evidence: EvidenceReferenceListSchema.min(1),
+    action: MutationActionSchema,
   })
   .superRefine((mutant, context) => {
+    const hasHumanDecision = mutant.evidence.some(
+      (item) => item.type === 'human_decision',
+    );
     if (
       mutant.classification === 'unknown' &&
       mutant.classification_status !== 'unresolved'
@@ -178,6 +257,16 @@ export const SurvivingMutantSchema = z
         code: 'custom',
         message: 'An unknown classification must remain unresolved',
         path: ['classification_status'],
+      });
+    }
+    if (
+      mutant.classification_status === 'unresolved' &&
+      mutant.classification !== 'unknown'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'An unresolved classification must remain unknown',
+        path: ['classification'],
       });
     }
     if (
@@ -194,30 +283,120 @@ export const SurvivingMutantSchema = z
     }
     if (
       mutant.classification_status === 'accepted_exception' &&
-      mutant.exception_ref === undefined
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'An accepted exception requires an exception_ref',
-        path: ['exception_ref'],
-      });
-    }
-    if (
-      mutant.classification === 'equivalent' &&
-      mutant.classification_status === 'confirmed' &&
-      !mutant.evidence.some((item) => item.type === 'human_decision')
+      (mutant.classification !== 'accepted_risk' ||
+        mutant.exception_ref === undefined)
     ) {
       context.addIssue({
         code: 'custom',
         message:
-          'A confirmed equivalent mutant requires human-decision evidence',
+          'An accepted exception requires accepted_risk classification and an exception_ref',
+        path: ['exception_ref'],
+      });
+    }
+    if (
+      mutant.classification_status !== 'accepted_exception' &&
+      mutant.exception_ref !== undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'An exception_ref is only valid for an accepted_exception classification',
+        path: ['exception_ref'],
+      });
+    }
+    if (
+      (mutant.classification_status === 'confirmed' ||
+        mutant.classification_status === 'accepted_exception') &&
+      !hasHumanDecision
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'A confirmed classification or accepted exception requires human-decision evidence',
         path: ['classification_status'],
+      });
+    }
+    if (
+      mutant.outcome === 'no_coverage' &&
+      mutant.action.category !== 'add_test_coverage'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A no-coverage mutation must require coverage follow-up',
+        path: ['action', 'category'],
+      });
+    }
+    if (
+      mutant.outcome === 'survived' &&
+      mutant.action.category !== 'investigate_survivor' &&
+      mutant.action.category !== 'review_equivalent_candidate'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A surviving mutation requires survivor investigation',
+        path: ['action', 'category'],
+      });
+    }
+    if (
+      mutant.action.category === 'review_equivalent_candidate' &&
+      (mutant.classification !== 'equivalent' ||
+        mutant.classification_status !== 'candidate')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Equivalent-candidate follow-up requires a candidate equivalent classification',
+        path: ['action', 'category'],
       });
     }
   });
 
-/** A surviving mutant with location, status, evidence, and classification state. */
-export type SurvivingMutant = z.infer<typeof SurvivingMutantSchema>;
+/** A timed-out mutation whose outcome remains indeterminate. */
+export const TimedOutMutationSchema = z.strictObject({
+  ...MutationRecordBaseShape,
+  outcome: z.literal('timed_out'),
+  action: MutationActionSchema.extend({
+    category: z.literal('investigate_timeout'),
+  }),
+});
+
+/** A provider/tool failure retained as an actionable mutation record. */
+export const MutationErrorRecordSchema = z.strictObject({
+  ...MutationRecordBaseShape,
+  outcome: z.literal('error'),
+  error_category: z.enum([
+    'non_viable',
+    'memory_error',
+    'run_error',
+    'provider_error',
+    'unknown',
+  ]),
+  action: MutationActionSchema.extend({
+    category: z.literal('investigate_provider_error'),
+  }),
+});
+
+/** One normalized mutation result, including killed and indeterminate outcomes. */
+export const MutationRecordSchema = z.discriminatedUnion('outcome', [
+  KilledMutationSchema,
+  MutationDebtRecordSchema,
+  TimedOutMutationSchema,
+  MutationErrorRecordSchema,
+]);
+
+/** One normalized mutation result from any provider. */
+export type MutationRecord = z.infer<typeof MutationRecordSchema>;
+
+/** A survivor or no-coverage result that can be tracked in a baseline. */
+export type MutationDebtRecord = z.infer<typeof MutationDebtRecordSchema>;
+
+/**
+ * Compatibility name for provider classification APIs.
+ *
+ * It now covers both survivors and no-coverage mutation debt.
+ */
+export const SurvivingMutantSchema = MutationDebtRecordSchema;
+export type SurvivingMutant = MutationDebtRecord;
 
 /** Evidence retained for an assurance or merge decision. */
 export const AssuranceEvidenceSchema = z.strictObject({
@@ -239,6 +418,8 @@ export const AssuranceEvidenceSchema = z.strictObject({
       tool: NonEmptyStringSchema,
       version: NonEmptyStringSchema.optional(),
       invocation: NonEmptyStringSchema.optional(),
+      run_id: ArtifactIdSchema.optional(),
+      configuration_evidence_ref: ArtifactIdSchema.optional(),
       exit_code: z.number().int().optional(),
     })
     .optional(),
@@ -247,7 +428,7 @@ export const AssuranceEvidenceSchema = z.strictObject({
 /** Traceable assurance evidence, optionally including normalized tool execution. */
 export type AssuranceEvidence = z.infer<typeof AssuranceEvidenceSchema>;
 
-const MutationTotalsSchema = z.strictObject({
+export const MutationTotalsSchema = z.strictObject({
   generated: z.number().int().nonnegative(),
   killed: z.number().int().nonnegative(),
   survived: z.number().int().nonnegative(),
@@ -256,18 +437,32 @@ const MutationTotalsSchema = z.strictObject({
   errors: z.number().int().nonnegative(),
 });
 
-const SurvivingMutantListSchema = z
-  .array(SurvivingMutantSchema)
-  .superRefine((survivors, context) => {
-    duplicateIndexesBy(survivors, (survivor) => survivor.id).forEach(
+/** Exact outcome totals for one normalized mutation run. */
+export type MutationTotals = z.infer<typeof MutationTotalsSchema>;
+
+const MutationRecordListSchema = z
+  .array(MutationRecordSchema)
+  .max(100_000)
+  .superRefine((mutations, context) => {
+    duplicateIndexesBy(mutations, (mutation) => mutation.id).forEach(
       (index) => {
         context.addIssue({
           code: 'custom',
-          message: 'Surviving mutant IDs must be unique',
+          message: 'Mutation record IDs must be unique',
           path: [index, 'id'],
         });
       },
     );
+    mutations.forEach((mutation, index) => {
+      const previous = mutations[index - 1];
+      if (previous !== undefined && previous.id > mutation.id) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Mutation records must be sorted by ID',
+          path: [index, 'id'],
+        });
+      }
+    });
   });
 
 const AssuranceEvidenceListSchema = z
@@ -284,106 +479,132 @@ const AssuranceEvidenceListSchema = z
     );
   });
 
-/** Normalized output of any future mutation-testing provider. */
+/** Normalized, traceable output of a mutation-testing provider. */
 export const MutationReportSchema = z
   .strictObject({
     schema_version: z.literal(SUPPORTED_SCHEMA_VERSION),
     kind: z.literal('mutation_report'),
     id: ArtifactIdSchema,
-    provider: NonEmptyStringSchema,
+    project_ref: ArtifactIdSchema,
+    assurance_profile_ref: ArtifactIdSchema,
+    assurance_plan_ref: ArtifactIdSchema,
+    provider: MutationProviderIdentitySchema,
+    provider_run_id: ArtifactIdSchema,
+    run: MutationRunSchema,
     scope: MutationScopeSchema,
     totals: MutationTotalsSchema,
-    survivors: SurvivingMutantListSchema,
-    baseline_comparison: z
-      .strictObject({
-        baseline_ref: ArtifactIdSchema,
-        new_survivors: z.number().int().nonnegative(),
-        new_survivor_ids: UniqueArtifactIdListSchema,
-        resolved_survivors: z.number().int().nonnegative(),
-        resolved_survivor_ids: UniqueArtifactIdListSchema,
-      })
-      .optional(),
+    mutations: MutationRecordListSchema,
     evidence: AssuranceEvidenceListSchema.min(1),
   })
   .superRefine((report, context) => {
-    const accountedFor =
-      report.totals.killed +
-      report.totals.survived +
-      report.totals.no_coverage +
-      report.totals.timed_out +
-      report.totals.errors;
-    if (report.totals.generated !== accountedFor) {
+    const count = (outcome: MutationRecord['outcome']): number =>
+      report.mutations.filter((mutation) => mutation.outcome === outcome)
+        .length;
+    const expectedTotals = {
+      generated: report.mutations.length,
+      killed: count('killed'),
+      survived: count('survived'),
+      no_coverage: count('no_coverage'),
+      timed_out: count('timed_out'),
+      errors: count('error'),
+    };
+    (
+      Object.entries(expectedTotals) as readonly [
+        keyof typeof expectedTotals,
+        number,
+      ][]
+    ).forEach(([field, expected]) => {
+      if (report.totals[field] === expected) {
+        return;
+      }
+      context.addIssue({
+        code: 'custom',
+        message: `${field} must equal the number of matching mutation records`,
+        path: ['totals', field],
+      });
+    });
+    const mutationRunEvidence = report.evidence
+      .map((evidence, index) => ({ evidence, index }))
+      .filter(({ evidence }) => evidence.type === 'mutation_run');
+    if (mutationRunEvidence.length !== 1) {
       context.addIssue({
         code: 'custom',
         message:
-          'generated must equal killed + survived + no_coverage + timed_out + errors',
-        path: ['totals', 'generated'],
+          'A mutation report requires exactly one mutation_run evidence record',
+        path: ['evidence'],
       });
     }
-    if (report.totals.survived !== report.survivors.length) {
-      context.addIssue({
-        code: 'custom',
-        message: 'survived must equal the number of survivor records',
-        path: ['totals', 'survived'],
-      });
-    }
-    if (
-      report.baseline_comparison !== undefined &&
-      report.baseline_comparison.new_survivors > report.totals.survived
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'new_survivors cannot exceed the report survivor count',
-        path: ['baseline_comparison', 'new_survivors'],
-      });
-    }
-    if (
-      report.baseline_comparison !== undefined &&
-      report.baseline_comparison.new_survivors !==
-        report.baseline_comparison.new_survivor_ids.length
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'new_survivors must equal the number of new_survivor_ids',
-        path: ['baseline_comparison', 'new_survivors'],
-      });
-    }
-    if (
-      report.baseline_comparison !== undefined &&
-      report.baseline_comparison.resolved_survivors !==
-        report.baseline_comparison.resolved_survivor_ids.length
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message:
-          'resolved_survivors must equal the number of resolved_survivor_ids',
-        path: ['baseline_comparison', 'resolved_survivors'],
-      });
-    }
-    if (report.baseline_comparison !== undefined) {
-      const currentSurvivorIds = new Set(
-        report.survivors.map((survivor) => survivor.id),
-      );
-      report.baseline_comparison.new_survivor_ids.forEach((id, index) => {
-        if (!currentSurvivorIds.has(id)) {
-          context.addIssue({
-            code: 'custom',
-            message: 'A new survivor ID must identify a current survivor',
-            path: ['baseline_comparison', 'new_survivor_ids', index],
-          });
-        }
-      });
-      report.baseline_comparison.resolved_survivor_ids.forEach((id, index) => {
-        if (currentSurvivorIds.has(id)) {
-          context.addIssue({
-            code: 'custom',
-            message:
-              'A resolved survivor ID cannot remain in current survivors',
-            path: ['baseline_comparison', 'resolved_survivor_ids', index],
-          });
-        }
-      });
-    }
+    mutationRunEvidence.forEach(({ evidence, index }) => {
+      const configurationEvidence =
+        evidence.execution?.configuration_evidence_ref === undefined
+          ? undefined
+          : evidence.references.find(
+              (reference) =>
+                reference.id === evidence.execution?.configuration_evidence_ref,
+            );
+      if (
+        report.provider.configuration_fingerprint !== undefined &&
+        (configurationEvidence?.type !== 'build_configuration' ||
+          configurationEvidence.provider !== report.provider.id)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'A configuration fingerprint requires an identified build-configuration evidence reference from the same provider',
+          path: ['evidence', index, 'execution', 'configuration_evidence_ref'],
+        });
+      }
+      if (
+        evidence.execution?.tool !== report.provider.id ||
+        evidence.execution.run_id !== report.provider_run_id ||
+        (report.provider.tool_version !== undefined &&
+          evidence.execution.version !== report.provider.tool_version) ||
+        (report.provider.configuration_fingerprint !== undefined &&
+          evidence.execution.invocation !==
+            report.provider.configuration_fingerprint)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Mutation-run evidence must match provider, version, run ID, and configuration fingerprint',
+          path: ['evidence', index, 'execution'],
+        });
+      }
+      if (evidence.status !== 'passed') {
+        return;
+      }
+      if (
+        report.run.completeness !== 'complete' ||
+        report.totals.generated === 0 ||
+        report.totals.survived > 0 ||
+        report.totals.no_coverage > 0 ||
+        report.totals.timed_out > 0 ||
+        report.totals.errors > 0
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Passed mutation evidence requires a complete, non-empty, all-killed run',
+          path: ['evidence', index, 'status'],
+        });
+      }
+      if (
+        report.provider.tool_version === undefined ||
+        report.provider.configuration_fingerprint === undefined ||
+        evidence.execution?.tool !== report.provider.id ||
+        evidence.execution.version !== report.provider.tool_version ||
+        evidence.execution.run_id !== report.provider_run_id ||
+        evidence.execution.invocation !==
+          report.provider.configuration_fingerprint
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Passed mutation evidence requires matching versioned execution provenance and a configuration-fingerprint binding',
+          path: ['evidence', index, 'execution'],
+        });
+      }
+    });
   });
 
 /** A validated, provider-neutral mutation report artifact. */

@@ -8,6 +8,15 @@
       "path": "./packages/assurance-engine"
     },
     {
+      "path": "./packages/instruction-compiler"
+    },
+    {
+      "path": "./packages/mutation-engine"
+    },
+    {
+      "path": "./packages/providers-pitest"
+    },
+    {
       "path": "./packages/providers-filesystem"
     },
     {

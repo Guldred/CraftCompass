@@ -1,3 +1,5 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -357,6 +359,26 @@ describe('FileSystemRepositoryScanner', () => {
       'Manifest exceeds 2097152 bytes: package.json',
     );
     expect(attemptedRead).toBe(false);
+  });
+
+  it('rejects malformed UTF-8 in a real repository manifest', async () => {
+    const repository = await mkdtemp(
+      path.join(tmpdir(), 'craftcompass-malformed-manifest-'),
+    );
+    try {
+      await writeFile(
+        path.join(repository, 'package.json'),
+        Uint8Array.from([
+          0x7b, 0x22, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x3a, 0xc3, 0x28,
+        ]),
+      );
+
+      await expect(
+        new FileSystemRepositoryScanner().scan(repository),
+      ).rejects.toThrow('Manifest is not valid UTF-8 text');
+    } finally {
+      await rm(repository, { recursive: true, force: true });
+    }
   });
 
   it('refuses to follow supported manifest symlinks', async () => {

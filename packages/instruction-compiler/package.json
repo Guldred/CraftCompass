@@ -1,0 +1,19 @@
+{
+  "name": "@craftcompass/instruction-compiler",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic, trust-boundary-aware agent instruction compilation for CraftCompass.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@craftcompass/domain": "workspace:*"
+  }
+}

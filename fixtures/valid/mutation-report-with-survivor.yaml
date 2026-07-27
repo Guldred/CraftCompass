@@ -1,7 +1,18 @@
 schema_version: 1
 kind: mutation_report
 id: MUTATION-REPORT-FEATURE-482
-provider: example-mutation-provider
+project_ref: PROJECT-ORDER-SERVICE
+assurance_profile_ref: ASSURANCE-PROFILE-ORDER-SERVICE
+assurance_plan_ref: ASSURANCE-PLAN-ORDER-CANCELLATION
+provider:
+  id: example-mutation-provider
+  tool_version: 1.0.0
+  normalization_version: example-v1
+  configuration_fingerprint: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+provider_run_id: MUTATION-RUN-FEATURE-482
+run:
+  completeness: complete
+  limitations: []
 scope:
   primary_targets:
     - example.order.domain.OrderCancellationService
@@ -16,48 +27,117 @@ scope:
     - Spring proxy relationships may be incomplete.
     - Runtime message consumers are outside the static scope.
 totals:
-  generated: 50
-  killed: 45
+  generated: 5
+  killed: 1
   survived: 1
-  no_coverage: 2
+  no_coverage: 1
   timed_out: 1
   errors: 1
-survivors:
+mutations:
+  - id: MUTANT-CANCEL-100
+    provider_outcome: KILLED
+    outcome: killed
+    operator: RETURNS
+    description: Replaced the cancellation result with a default value.
+    location:
+      provider_source: OrderCancellationService.java
+      file: src/main/java/example/order/domain/OrderCancellationService.java
+      symbol: cancel
+      line: 31
+    evidence:
+      - &report-reference
+        id: EV-PIT-REPORT-482
+        type: test_result
+        description: Normalized mutation report for FEATURE-482.
+        location: artifacts/mutations/FEATURE-482.xml
+  - id: MUTANT-CANCEL-120
+    provider_outcome: NO_COVERAGE
+    outcome: no_coverage
+    operator: VOID_METHOD_CALLS
+    description: Removed the cancellation-audit call.
+    location:
+      provider_source: OrderCancellationService.java
+      file: src/main/java/example/order/domain/OrderCancellationService.java
+      symbol: cancel
+      line: 36
+    classification: unknown
+    classification_status: unresolved
+    action:
+      required: true
+      category: add_test_coverage
+      reason: No selected test exercised this mutation.
+    evidence:
+      - *report-reference
   - id: MUTANT-CANCEL-140
+    provider_outcome: SURVIVED
+    outcome: survived
     operator: CONDITIONALS_BOUNDARY
     description: Changed the cancellation deadline comparison.
     location:
+      provider_source: CancellationPolicy.java
       file: src/main/java/example/order/domain/CancellationPolicy.java
       symbol: mayCancel
       line: 42
     classification: test_gap
     classification_status: candidate
     explanation: A deadline-boundary scenario appears to be missing and requires review.
+    action:
+      required: true
+      category: investigate_survivor
+      reason: No selected test distinguished this mutation.
     evidence:
-      - id: EV-PIT-MUTANT-140
-        type: test_result
-        description: No selected test failed for this mutation.
-        location: artifacts/mutations/MUTANT-CANCEL-140.xml
-baseline_comparison:
-  baseline_ref: MUTATION-BASELINE-ORDER-DOMAIN
-  new_survivors: 1
-  new_survivor_ids:
-    - MUTANT-CANCEL-140
-  resolved_survivors: 0
-  resolved_survivor_ids: []
+      - *report-reference
+  - id: MUTANT-CANCEL-160
+    provider_outcome: TIMED_OUT
+    outcome: timed_out
+    operator: INCREMENTS
+    description: Altered a retry counter and timed out.
+    location:
+      provider_source: RefundDecision.java
+      file: src/main/java/example/order/domain/RefundDecision.java
+      symbol: initialize
+      line: 28
+    action:
+      required: true
+      category: investigate_timeout
+      reason: The mutation timed out and has no trustworthy test result.
+    evidence:
+      - *report-reference
+  - id: MUTANT-CANCEL-180
+    provider_outcome: RUN_ERROR
+    outcome: error
+    error_category: run_error
+    operator: RETURNS
+    description: PIT could not execute the mutated class.
+    location:
+      provider_source: RefundDecision.java
+      file: src/main/java/example/order/domain/RefundDecision.java
+      symbol: initialize
+      line: 35
+    action:
+      required: true
+      category: investigate_provider_error
+      reason: The provider reported an execution error.
+    evidence:
+      - *report-reference
 evidence:
   - id: ASSURANCE-EVIDENCE-MUTATION-482
     type: mutation_run
     status: conditional
-    summary: The targeted run has one candidate test-gap survivor.
+    summary: The targeted run contains mutation debt and indeterminate outcomes.
     captured_at: 2026-07-26T12:00:00Z
     references:
-      - id: EV-PIT-REPORT-482
-        type: test_result
-        description: Normalized mutation report for FEATURE-482.
-        location: artifacts/mutations/FEATURE-482.xml
+      - *report-reference
+      - id: EV-MUTATION-CONFIGURATION-482
+        type: build_configuration
+        description: Mutation configuration for the selected assurance-plan scope.
+        location: artifacts/mutations/FEATURE-482-configuration.json
+        captured_at: 2026-07-26T12:00:00Z
+        provider: example-mutation-provider
     execution:
       tool: example-mutation-provider
       version: 1.0.0
-      invocation: provider-defined targeted mutation run
+      invocation: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      run_id: MUTATION-RUN-FEATURE-482
+      configuration_evidence_ref: EV-MUTATION-CONFIGURATION-482
       exit_code: 0

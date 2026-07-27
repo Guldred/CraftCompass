@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mutations partial="false">
+  <mutation detected="true" status="KILLED" numberOfTestsRun="1">
+    <sourceFile>OrderCancellationService.java</sourceFile>
+    <mutatedClass>example.order.domain.OrderCancellationService</mutatedClass>
+    <mutatedMethod>total</mutatedMethod>
+    <methodDescription>()I</methodDescription>
+    <lineNumber>12</lineNumber>
+    <mutator>org.pitest.mutationtest.engine.gregor.mutators.returns.PrimitiveReturnsMutator</mutator>
+    <indexes><index>4</index></indexes>
+    <blocks><block>1</block></blocks>
+    <killingTest>example.order.domain.OrderCancellationServiceTest.total</killingTest>
+    <description>Replaced integer return with zero</description>
+  </mutation>
+</mutations>

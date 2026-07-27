@@ -4,6 +4,7 @@ export * from './change.js';
 export * from './common.js';
 export * from './dependency-direction-derivation.js';
 export * from './knowledge.js';
+export * from './mutation-baseline.js';
 export type * from './ports.js';
 export * from './project.js';
 export * from './registry.js';

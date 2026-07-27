@@ -35,21 +35,27 @@ importers:
 
   apps/cli:
     dependencies:
+      '@craftcompass/assurance-engine':
+        specifier: workspace:*
+        version: link:../../packages/assurance-engine
       '@craftcompass/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@craftcompass/instruction-compiler':
+        specifier: workspace:*
+        version: link:../../packages/instruction-compiler
+      '@craftcompass/mutation-engine':
+        specifier: workspace:*
+        version: link:../../packages/mutation-engine
       '@craftcompass/providers-filesystem':
         specifier: workspace:*
         version: link:../../packages/providers-filesystem
+      '@craftcompass/providers-pitest':
+        specifier: workspace:*
+        version: link:../../packages/providers-pitest
       yaml:
         specifier: 2.9.0
         version: 2.9.0
-
-  packages/domain:
-    dependencies:
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
 
   packages/assurance-engine:
     dependencies:
@@ -57,7 +63,37 @@ importers:
         specifier: workspace:*
         version: link:../domain
 
+  packages/domain:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/instruction-compiler:
+    dependencies:
+      '@craftcompass/domain':
+        specifier: workspace:*
+        version: link:../domain
+
+  packages/mutation-engine:
+    dependencies:
+      '@craftcompass/domain':
+        specifier: workspace:*
+        version: link:../domain
+
   packages/providers-filesystem:
+    dependencies:
+      '@craftcompass/domain':
+        specifier: workspace:*
+        version: link:../domain
+      fast-xml-parser:
+        specifier: 5.10.1
+        version: 5.10.1
+      fast-xml-validator:
+        specifier: 1.4.0
+        version: 1.4.0
+
+  packages/providers-pitest:
     dependencies:
       '@craftcompass/domain':
         specifier: workspace:*
