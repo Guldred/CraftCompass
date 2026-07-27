@@ -111,6 +111,11 @@ const invalidFixtures = [
     issuePath: '$.human_review.level',
     code: 'invalid_union',
   },
+  {
+    path: 'fixtures/invalid/partial-observation-without-limitation.yaml',
+    issuePath: '$.observation_coverage.limitations',
+    code: 'custom',
+  },
 ] as const;
 
 const loadValidArtifact = async (

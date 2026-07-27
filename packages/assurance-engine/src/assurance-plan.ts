@@ -113,6 +113,26 @@ const SECURITY_CONCERNS = new Set<ChangeConcern>([
   'new_external_entry_point',
 ]);
 
+const ASSURANCE_RELEVANT_PROJECT_CONTEXT_CAPABILITY =
+  'assurance_relevant_project_context';
+
+const hasAssuranceRelevantProjectContext = (
+  project: ProjectProfile,
+): boolean => {
+  const observationCoverage = project.observation_coverage;
+  return (
+    observationCoverage?.status === 'complete_for_declared_scope' &&
+    observationCoverage.capabilities.some(
+      (capability) =>
+        capability.id === ASSURANCE_RELEVANT_PROJECT_CONTEXT_CAPABILITY &&
+        capability.status === 'supported',
+    ) &&
+    observationCoverage.inputs.some((input) =>
+      input.evidence.some((evidence) => evidence.type === 'human_decision'),
+    )
+  );
+};
+
 const compareText = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
 
@@ -393,6 +413,7 @@ const isLevelTwoReady = (
   const readiness = input.profile.readiness;
   return (
     input.profile.review_policy.default_level === 2 &&
+    hasAssuranceRelevantProjectContext(input.project) &&
     overallRisk !== 'critical' &&
     input.impact.status === 'available' &&
     input.impact.confidence >= 0.8 &&
@@ -472,9 +493,14 @@ export const deriveAssurancePlan = (
   }
 
   const readinessEvidence = input.profile.readiness?.evidence ?? [];
+  const observationCoverageEvidence =
+    input.project.observation_coverage?.inputs.flatMap(
+      (observationInput) => observationInput.evidence,
+    ) ?? [];
   const derivationEvidence = mergeEvidence([
     input.impact.evidence,
     readinessEvidence,
+    observationCoverageEvidence,
   ]);
   if (!derivationEvidence.success) {
     return {
@@ -562,6 +588,11 @@ export const deriveAssurancePlan = (
           )),
   ]);
   const reviewRationale = uniqueSorted([
+    ...(!hasAssuranceRelevantProjectContext(input.project)
+      ? [
+          'Project observation coverage is missing, partial, unknown, not declared fit for assurance-relevant project context, or lacks human-decision input evidence, so it cannot support reduced review.',
+        ]
+      : []),
     ...(reviewLevel === 0
       ? [
           'Conventional review is required because risk, confidence, maturity, or evidence eligibility prevents reduced review.',

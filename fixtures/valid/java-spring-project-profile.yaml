@@ -170,6 +170,24 @@ uncertainties:
         type: source_file
         description: Persistence annotations occur in the domain package.
         location: src/main/java/example/order/domain
+observation_coverage:
+  status: complete_for_declared_scope
+  provider:
+    id: curated_project_profile
+    contract_version: '1'
+  capabilities:
+    - id: declared_project_context
+      status: supported
+  inputs:
+    - path: pom.xml
+      kind: manifest
+      status: parsed
+      evidence:
+        - id: EV-POM-MAVEN
+          type: build_configuration
+          description: The project uses a Maven project model.
+          location: pom.xml
+  limitations: []
 adaptation_context:
   delivery_stage: legacy
   architecture_scale: modular_system

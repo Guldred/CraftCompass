@@ -70,21 +70,59 @@ It is knowledge, not a project mandate.
 
 ## Project evidence
 
-| Concept              | Ownership                                                           |
-| -------------------- | ------------------------------------------------------------------- |
-| `ProjectObservation` | A statement with epistemic type, confidence, and evidence           |
-| `ProjectConstraint`  | A confirmed or provisional limitation that shapes guidance          |
-| `ProjectUncertainty` | An unresolved question, its impact, and resolution need             |
-| `ProjectProfile`     | Technologies, modules, observations, constraints, and uncertainties |
+| Concept              | Ownership                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `ProjectObservation` | A statement with epistemic type, confidence, and evidence                                          |
+| `ProjectConstraint`  | A confirmed or provisional limitation that shapes guidance                                         |
+| `ProjectUncertainty` | An unresolved question, its impact, and resolution need                                            |
+| `ProjectProfile`     | Technologies, modules, observations, constraints, uncertainties, and optional observation coverage |
 
 Detected `Technology` and `ProjectModule` records carry evidence directly.
 Their lists may be empty for unsupported or malformed repositories; absence is
 not replaced by an `Unknown` technology. Scanner-created modules are candidates
-until a human confirms the boundary and its responsibilities. The optional
-`ProjectModule.architecture_role` is a separate evidence-backed judgment:
-business policy, technical adapter, mixed, or unknown. It has its own
-candidate/confirmed status, confidence, observation references, and evidence.
-A confirmed role must reference a project decision with human-decision evidence.
+until a human confirms the boundary and its responsibilities.
+
+`ProjectModule.discovery` optionally preserves how a candidate was found:
+manifest declaration, manifest presence, or source layout. Selection remains
+separate: unconditional, default candidate, conditional, or unknown. Default
+and conditional candidates require context explaining the condition. This
+provenance does not confirm an architectural boundary or module responsibility.
+
+The optional `ProjectModule.architecture_role` is a separate evidence-backed
+judgment: business policy, technical adapter, mixed, or unknown. It has its own
+candidate/confirmed status, confidence, observation references, and evidence. A
+confirmed role must reference a project decision with human-decision evidence.
+
+`ProjectProfile.observation_coverage` qualifies repository-derived evidence
+with:
+
+- `complete_for_declared_scope`, `partial`, or `unknown` status,
+- provider identity and observation-contract version,
+- unique provider-neutral capabilities and their support status,
+- unique repository inputs and their observed outcome,
+- optional explicit traversal limits, including separate declared-module depth
+  and global declaration-processing budgets,
+- limitations, which are mandatory for partial or unknown coverage.
+
+Completeness is always scoped to the declared capabilities, inputs, and bounds.
+`complete_for_declared_scope` requires at least one declared capability and
+input, every capability to be supported, every input to be parsed or observed,
+and no limitations. It never means that the repository, runtime behavior,
+architecture, test strategy, or assurance evidence is globally complete.
+Partial and unknown coverage require at least one limitation. Missing
+`observation_coverage` means unknown, never complete. An unobserved technology,
+module, or tool therefore cannot be reported as absent unless a narrower,
+evidence-backed contract explicitly supports that claim.
+
+An assurance plan does not treat scanner completeness as assurance relevance.
+Review Level 2 additionally requires the normalized
+`assurance_relevant_project_context` capability and human-decision evidence
+among the coverage inputs. A build-configuration claim alone cannot authorize
+reduced review. The filesystem scanner never emits that capability. When
+project observation affects a review decision, its input evidence is included
+in the plan's derivation evidence and review trace. Curated decision records use
+the `project_documentation` input kind rather than being mislabeled as build
+configuration.
 
 `ObservationType` is:
 
@@ -320,6 +358,18 @@ CI.
 `packages/providers-filesystem` is a separate repository-observation adapter,
 not a code-graph or mutation provider. It maps bounded filesystem evidence into
 `ProjectProfile` without exposing Node paths or parser types in the domain.
+Composite observation is declared-first: supported root manifests lead to
+bounded local module traversal, followed by bounded discovery of independent
+supported manifests such as an embedded frontend build. Profile-bound Maven
+modules remain default or conditional candidates; the adapter observes their
+declarations but does not evaluate profile activation.
+
+Repository observation does not execute Maven or another project tool, resolve
+remote parents or dependency metadata, read user settings, or claim to have
+constructed an effective build or runtime model. Unsupported, failed, or
+budget-skipped inputs remain visible in coverage and limitations. Downstream
+derivation and assurance must use observation coverage conservatively. Even
+complete scanner coverage cannot independently authorize reduced review.
 
 `packages/providers-pitest` parses bounded PIT XML and normalizes it into the
 provider-neutral mutation model. A PIT source-file name is preserved as

@@ -52,6 +52,35 @@
   ],
   "constraints": [],
   "uncertainties": [],
+  "observation_coverage": {
+    "status": "complete_for_declared_scope",
+    "provider": {
+      "id": "curated_project_profile",
+      "contract_version": "1"
+    },
+    "capabilities": [
+      {
+        "id": "assurance_relevant_project_context",
+        "status": "supported"
+      }
+    ],
+    "inputs": [
+      {
+        "path": "docs/decisions/payment-boundaries.md",
+        "kind": "project_documentation",
+        "status": "observed",
+        "evidence": [
+          {
+            "id": "EV-PAYMENTS-ARCHITECTURE-DECISION",
+            "type": "human_decision",
+            "description": "The team accepted an explicit policy-to-adapter dependency direction.",
+            "location": "docs/decisions/payment-boundaries.md"
+          }
+        ]
+      }
+    ],
+    "limitations": []
+  },
   "adaptation_context": {
     "delivery_stage": "greenfield",
     "architecture_scale": "modular_system",

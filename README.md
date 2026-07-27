@@ -58,6 +58,8 @@ Implemented safeguards include:
 - safe repository and YAML traversal with path, symlink, size, count, and depth
   limits,
 - evidence-linked Java/Maven and TypeScript/pnpm repository observation,
+- provider-neutral observation-coverage and module-discovery provenance
+  contracts,
 - a fixture-only fake code-graph provider with honest degraded/unavailable
   states,
 - deterministic Review Level 0–2 assurance planning,
@@ -139,6 +141,28 @@ Scan a repository into a candidate profile:
 ```bash
 pnpm craft project scan fixtures/repositories/java-spring-service
 ```
+
+Repository-derived profiles may include `observation_coverage`, which records
+the provider contract, supported or partial capabilities, inspected inputs,
+optional traversal limits, and limitations. `complete_for_declared_scope`
+requires non-empty capabilities and inputs, all capabilities to be supported,
+all inputs to be parsed or observed, and no limitations. It means only that the
+declared bounded scope was assessed; it is not a claim of complete repository,
+architecture, runtime, or assurance knowledge. Partial and unknown coverage
+require limitations, while missing coverage means unknown.
+
+Module candidates may carry discovery provenance separately from architectural
+roles. Manifest-declared modules can be unconditional, default candidates, or
+conditional. The composite-observation contract requires declared local
+modules to be followed before sorted, bounded, no-symlink discovery of embedded
+supported manifests. Repository observation never executes project commands or
+claims Maven profile activation, remote model resolution, or an effective
+build. Scanner coverage cannot independently authorize reduced review, even
+when complete for its declared scope. Review Level 2 additionally requires an
+explicit assurance-relevant project-context capability with human-decision
+evidence among its coverage inputs. Build-configuration evidence alone cannot
+authorize reduced review. The retained input evidence remains visible in the
+plan's decision trace; the filesystem scanner does not make that claim.
 
 Validate a connected registry. Inputs may be YAML files or directories:
 
@@ -326,6 +350,7 @@ behavior. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 - [ADR 0007: Graph-backed assurance planning](docs/decisions/0007-graph-backed-assurance-planning.md)
 - [ADR 0008: Attested mutation assurance](docs/decisions/0008-attested-mutation-assurance.md)
 - [ADR 0009: Deterministic agent instructions](docs/decisions/0009-deterministic-agent-instructions.md)
+- [ADR 0010: Bounded composite repository observation](docs/decisions/0010-bounded-composite-repository-observation.md)
 
 ## Deferred work
 

@@ -1,13 +1,9 @@
 # Repository assessment and candidate rules
 
-Use `<launcher>` to mean:
-
-```text
-node <skill-directory>/scripts/craftcompass.mjs
-```
-
-Run it from the target repository root. Prefer absolute paths so the trusted
-installed CraftCompass package and the untrusted target remain unambiguous.
+Use the exact `<supported-node>` and `<launcher>` bindings established by
+`SKILL.md` for the entire workflow. Run `<launcher>` from the target repository
+root. Prefer absolute paths so the trusted installed CraftCompass package and
+the untrusted target remain unambiguous.
 
 ## Read-only repository assessment
 
@@ -24,10 +20,17 @@ repository but has not asked for files to be created.
 
 4. Treat the emitted `project_profile` as a candidate observation. Do not save
    it automatically.
-5. Report detected technologies, modules, architecture-role evidence,
-   confidence, assumptions, and limitations separately.
-6. State that repository observation does not execute project code, inspect a
-   live Git diff, or prove runtime architecture.
+5. Report `observation_coverage` before interpreting what was found: status,
+   provider contract, capability support, parsed/observed/failed/unsupported or
+   budget-skipped inputs, traversal limits, and limitations. Missing coverage
+   means unknown; partial coverage and unobserved tools must never be reported
+   as repository-wide absence.
+6. Report detected technologies, modules, discovery provenance,
+   architecture-role evidence, confidence, assumptions, and uncertainties
+   separately.
+7. State that repository observation does not execute project code, inspect a
+   live Git diff, prove runtime architecture, construct an effective build
+   model, or establish publisher authenticity.
 
 If the provider reports unknown or weak evidence, retain that result. Do not
 fill gaps from convention or guesswork.

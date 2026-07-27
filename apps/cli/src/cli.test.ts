@@ -123,6 +123,12 @@ describe('craft CLI', () => {
     expect(harness.errors).toEqual([
       [
         'Usage:',
+        '  craft help',
+        '  craft --help',
+        '  craft help scan',
+        '  craft help project scan',
+        '  craft scan --help',
+        '  craft project scan --help',
         '  craft <validate|inspect> <artifact-path>',
         '  craft scan <repository-path>',
         '  craft project scan <repository-path>',
@@ -138,6 +144,12 @@ describe('craft CLI', () => {
       ].join('\n'),
       [
         'Usage:',
+        '  craft help',
+        '  craft --help',
+        '  craft help scan',
+        '  craft help project scan',
+        '  craft scan --help',
+        '  craft project scan --help',
         '  craft <validate|inspect> <artifact-path>',
         '  craft scan <repository-path>',
         '  craft project scan <repository-path>',
@@ -152,6 +164,47 @@ describe('craft CLI', () => {
         '  craft mutation evaluate <report-id> <baseline-id|-> <profile-id> <artifact-path>...',
       ].join('\n'),
     ]);
+  });
+
+  it.each([['--help'], ['help']] as const)(
+    'prints general help for %s with a successful exit',
+    async (...args) => {
+      const harness = createHarness();
+
+      const exitCode = await runCli(args, harness.dependencies);
+
+      expect(exitCode).toBe(0);
+      expect(harness.errors).toEqual([]);
+      expect(harness.output).toHaveLength(1);
+      expect(harness.output[0]).toContain('Usage:');
+      expect(harness.output[0]).toContain(
+        'craft project scan <repository-path>',
+      );
+    },
+  );
+
+  it.each([
+    ['help', 'scan'],
+    ['scan', '--help'],
+    ['help', 'project', 'scan'],
+    ['project', 'scan', '--help'],
+  ] as const)('prints command-specific scan help for %s', async (...args) => {
+    const harness = createHarness();
+
+    const exitCode = await runCli(args, harness.dependencies);
+
+    expect(exitCode).toBe(0);
+    expect(harness.errors).toEqual([]);
+    expect(harness.output).toHaveLength(1);
+    expect(harness.output[0]).toContain(
+      'Read supported repository manifests without executing target project code.',
+    );
+    expect(harness.output[0]).toContain(
+      'write one candidate project_profile YAML artifact to stdout',
+    );
+    expect(harness.output[0]).toContain(
+      'craftcompass_command_error JSON object to stderr',
+    );
   });
 
   it('reports file adapter errors without a stack trace', async () => {
@@ -225,6 +278,50 @@ describe('craft CLI', () => {
       expect(harness.output[0]).not.toContain(repository);
     },
   );
+
+  it('emits a stable escaped JSON envelope for a coded scan failure', async () => {
+    const harness = createHarness();
+    const failure = Object.assign(
+      new Error('Manifest changed\u001b[31m\nwhile reading\u202e.'),
+      { code: 'manifest_changed' },
+    );
+
+    const exitCode = await runCli(['project', 'scan', '/repository'], {
+      ...harness.dependencies,
+      scanRepository: () => Promise.reject(failure),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(harness.output).toEqual([]);
+    expect(harness.errors).toHaveLength(1);
+    expect(JSON.parse(harness.errors[0] ?? '')).toEqual({
+      schema_version: 1,
+      kind: 'craftcompass_command_error',
+      command: 'project_scan',
+      code: 'manifest_changed',
+      message: 'Manifest changed\\u{1B}[31m\\u{A}while reading\\u{202E}.',
+    });
+  });
+
+  it('uses the stable fallback code for an uncoded scan failure', async () => {
+    const harness = createHarness();
+
+    const exitCode = await runCli(['scan', '/repository'], {
+      ...harness.dependencies,
+      scanRepository: () => Promise.reject(new Error('Unavailable')),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(harness.output).toEqual([]);
+    expect(harness.errors).toHaveLength(1);
+    expect(JSON.parse(harness.errors[0] ?? '')).toEqual({
+      schema_version: 1,
+      kind: 'craftcompass_command_error',
+      command: 'project_scan',
+      code: 'repository_scan_failed',
+      message: 'Unavailable',
+    });
+  });
 
   it('validates a cross-artifact registry with resolved references', async () => {
     const harness = createHarness();

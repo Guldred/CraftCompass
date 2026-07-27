@@ -5,6 +5,7 @@ import {
   ConfidenceSchema,
   EvidenceReferenceListSchema,
   NonEmptyStringSchema,
+  RepositoryRelativePathSchema,
   SUPPORTED_SCHEMA_VERSION,
   UniqueArtifactIdListSchema,
   UniqueStringListSchema,
@@ -179,11 +180,48 @@ export const ProjectModuleRoleSchema = z
     }
   });
 
+/** Provider-neutral evidence describing how a candidate module was discovered. */
+export const ProjectModuleDiscoverySchema = z
+  .strictObject({
+    basis: z.enum([
+      'manifest_declaration',
+      'manifest_presence',
+      'source_layout',
+    ]),
+    selection: z.enum([
+      'unconditional',
+      'default_candidate',
+      'conditional',
+      'unknown',
+    ]),
+    context: NonEmptyStringSchema.optional(),
+  })
+  .superRefine((discovery, context) => {
+    if (
+      (discovery.selection === 'default_candidate' ||
+        discovery.selection === 'conditional') &&
+      discovery.context === undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Default-candidate and conditional module discovery requires context',
+        path: ['context'],
+      });
+    }
+  });
+
+/** How a candidate module was discovered and selected. */
+export type ProjectModuleDiscovery = z.infer<
+  typeof ProjectModuleDiscoverySchema
+>;
+
 /** Candidate or confirmed project boundary backed by repository evidence. */
 export const ProjectModuleSchema = z.strictObject({
   name: NonEmptyStringSchema,
   path: NonEmptyStringSchema,
   status: z.enum(['candidate', 'confirmed']),
+  discovery: ProjectModuleDiscoverySchema.optional(),
   architecture_role: ProjectModuleRoleSchema.optional(),
   responsibilities: UniqueStringListSchema,
   evidence: EvidenceReferenceListSchema.min(1),
@@ -249,6 +287,171 @@ export const AdaptationContextSchema = z.strictObject({
 /** Human- or evidence-supplied context; it is never guessed from naming alone. */
 export type AdaptationContext = z.infer<typeof AdaptationContextSchema>;
 
+/** One provider-neutral repository-observation capability declaration. */
+export const RepositoryObservationCapabilitySchema = z.strictObject({
+  id: ArtifactIdSchema,
+  status: z.enum(['supported', 'partial', 'unsupported']),
+});
+
+/** Declared support level for one provider-neutral observation capability. */
+export type RepositoryObservationCapability = z.infer<
+  typeof RepositoryObservationCapabilitySchema
+>;
+
+const RepositoryObservationCapabilityListSchema = z
+  .array(RepositoryObservationCapabilitySchema)
+  .superRefine((capabilities, context) => {
+    duplicateIndexesBy(capabilities, (capability) => capability.id).forEach(
+      (index) => {
+        context.addIssue({
+          code: 'custom',
+          message: 'Repository-observation capability IDs must be unique',
+          path: [index, 'id'],
+        });
+      },
+    );
+  });
+
+/** A normalized input kind observed without exposing provider parser types. */
+export const RepositoryObservationInputKindSchema = z.enum([
+  'manifest',
+  'configuration',
+  'lockfile',
+  'source_root',
+  'directory',
+  'project_documentation',
+]);
+
+/** The provider-neutral kind of one observed repository input. */
+export type RepositoryObservationInputKind = z.infer<
+  typeof RepositoryObservationInputKindSchema
+>;
+
+/** One bounded repository input and the outcome of observing it. */
+export const RepositoryObservationInputSchema = z.strictObject({
+  path: z.union([z.literal('.'), RepositoryRelativePathSchema]),
+  kind: RepositoryObservationInputKindSchema,
+  status: z.enum([
+    'parsed',
+    'observed',
+    'unsupported',
+    'failed',
+    'skipped_by_limit',
+  ]),
+  evidence: EvidenceReferenceListSchema.min(1),
+});
+
+/** A bounded repository input and its observation outcome. */
+export type RepositoryObservationInput = z.infer<
+  typeof RepositoryObservationInputSchema
+>;
+
+const RepositoryObservationInputListSchema = z
+  .array(RepositoryObservationInputSchema)
+  .superRefine((inputs, context) => {
+    duplicateIndexesBy(inputs, (input) => input.path).forEach((index) => {
+      context.addIssue({
+        code: 'custom',
+        message: 'Repository-observation input paths must be unique',
+        path: [index, 'path'],
+      });
+    });
+  });
+
+/** Explicit finite limits applied while observing repository inputs. */
+export const RepositoryObservationLimitsSchema = z.strictObject({
+  max_declared_module_depth: z.number().int().nonnegative(),
+  max_declared_module_declarations: z.number().int().nonnegative(),
+  max_discovery_depth: z.number().int().nonnegative(),
+  max_directories: z.number().int().nonnegative(),
+  max_entries_per_directory: z.number().int().nonnegative(),
+  max_manifests: z.number().int().nonnegative(),
+  max_total_manifest_bytes: z.number().int().nonnegative(),
+});
+
+/** Finite bounds declared by a repository-observation provider. */
+export type RepositoryObservationLimits = z.infer<
+  typeof RepositoryObservationLimitsSchema
+>;
+
+/** Provider-neutral coverage and provenance for one repository observation. */
+export const RepositoryObservationCoverageSchema = z
+  .strictObject({
+    status: z.enum(['complete_for_declared_scope', 'partial', 'unknown']),
+    provider: z.strictObject({
+      id: NonEmptyStringSchema,
+      contract_version: NonEmptyStringSchema,
+    }),
+    capabilities: RepositoryObservationCapabilityListSchema,
+    inputs: RepositoryObservationInputListSchema,
+    limits: RepositoryObservationLimitsSchema.optional(),
+    limitations: UniqueStringListSchema,
+  })
+  .superRefine((coverage, context) => {
+    if (coverage.status === 'complete_for_declared_scope') {
+      if (coverage.capabilities.length === 0) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Complete repository observation requires at least one supported capability',
+          path: ['capabilities'],
+        });
+      }
+      coverage.capabilities.forEach((capability, capabilityIndex) => {
+        if (capability.status !== 'supported') {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'Complete repository observation cannot include partial or unsupported capabilities',
+            path: ['capabilities', capabilityIndex, 'status'],
+          });
+        }
+      });
+      if (coverage.inputs.length === 0) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Complete repository observation requires at least one assessed input',
+          path: ['inputs'],
+        });
+      }
+      coverage.inputs.forEach((input, inputIndex) => {
+        if (input.status !== 'parsed' && input.status !== 'observed') {
+          context.addIssue({
+            code: 'custom',
+            message:
+              'Complete repository observation cannot include failed, skipped, or unsupported inputs',
+            path: ['inputs', inputIndex, 'status'],
+          });
+        }
+      });
+      if (coverage.limitations.length > 0) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Complete repository observation cannot retain unresolved limitations',
+          path: ['limitations'],
+        });
+      }
+    }
+    if (
+      (coverage.status === 'partial' || coverage.status === 'unknown') &&
+      coverage.limitations.length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Partial or unknown repository observation requires at least one limitation',
+        path: ['limitations'],
+      });
+    }
+  });
+
+/** Coverage metadata that qualifies a repository-derived project profile. */
+export type RepositoryObservationCoverage = z.infer<
+  typeof RepositoryObservationCoverageSchema
+>;
+
 /** Evidence-aware normalized description of a project and its constraints. */
 export const ProjectProfileSchema = z
   .strictObject({
@@ -261,6 +464,7 @@ export const ProjectProfileSchema = z
     observations: ProjectObservationListSchema.min(1),
     constraints: ProjectConstraintListSchema,
     uncertainties: ProjectUncertaintyListSchema,
+    observation_coverage: RepositoryObservationCoverageSchema.optional(),
     adaptation_context: AdaptationContextSchema.optional(),
   })
   .superRefine((profile, context) => {

@@ -40,10 +40,14 @@ export const inspectArtifact = (artifact: CraftArtifact): string => {
           .sort(([left], [right]) => left.localeCompare(right))
           .map(([type, count]) => `${type}: ${count}`)
           .join(', ') || 'none';
+      const coverage = artifact.observation_coverage;
       return [
         `Project profile ${artifact.id}: ${artifact.name}`,
         `Technologies: ${technologies}`,
         `Modules: ${modules}`,
+        `Observation coverage: ${coverage?.status ?? 'unknown'}${
+          coverage === undefined ? '' : `; provider: ${coverage.provider.id}`
+        }`,
         `Observations: ${observations}`,
         `${plural(artifact.constraints.length, 'constraint')}; ${plural(artifact.uncertainties.length, 'uncertainty', 'uncertainties')}`,
       ].join('\n');

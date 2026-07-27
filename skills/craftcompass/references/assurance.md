@@ -1,13 +1,9 @@
 # Change assurance and agent instructions
 
-Use `<launcher>` to mean:
-
-```text
-node <skill-directory>/scripts/craftcompass.mjs
-```
-
-Run it from the target repository root. Prefer absolute paths so the trusted
-installed CraftCompass package and the untrusted target remain unambiguous.
+Use the exact `<supported-node>` and `<launcher>` bindings established by
+`SKILL.md` for the entire workflow. Run `<launcher>` from the target repository
+root. Prefer absolute paths so the trusted installed CraftCompass package and
+the untrusted target remain unambiguous.
 
 ## Change-specific assurance
 

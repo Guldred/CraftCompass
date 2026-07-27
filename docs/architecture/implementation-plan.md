@@ -59,6 +59,35 @@ Delivered:
 - `craft scan` and `craft project scan`,
 - Java/Maven/Spring/JUnit and TypeScript/pnpm/Vitest fixture repositories.
 
+## Slice 1b: Bounded composite repository observation
+
+Status: complete.
+
+Extend the basic scanner without turning it into a build executor or complete
+architecture model:
+
+- persist provider-neutral observation coverage and module-discovery
+  provenance,
+- treat missing coverage as unknown and qualify completeness by declared scope,
+- reserve complete-for-declared-scope for non-empty, fully supported and
+  successfully observed inputs with no limitations,
+- follow valid local Maven module declarations within separate depth and global
+  declaration-processing limits before bounded manifest discovery,
+- preserve default and conditional provenance for profile-bound modules,
+- recognize independent supported build roots such as an embedded frontend,
+- reject unsupported, unsafe, changing, or over-budget inputs without silently
+  treating them as absent,
+- keep all scanner evidence conservative for downstream assurance and require a
+  separately declared assurance-relevant project-context capability backed by
+  human-decision coverage evidence before Review Level 2.
+
+Delivered with the domain contract and ADR: filesystem composition,
+cross-artifact consumers, realistic multi-build fixtures, adversarial traversal
+verification, and read-only acceptance against a representative multi-build
+repository. The provider does not execute Maven, evaluate its full
+profile-activation environment, resolve remote parents or BOMs, read user
+settings, or claim an effective build model.
+
 ## Slice 2: Cross-artifact registry and deterministic derivation fixture
 
 Status: complete.

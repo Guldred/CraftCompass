@@ -61,6 +61,12 @@ export interface CliDependencies {
 
 const USAGE = [
   'Usage:',
+  '  craft help',
+  '  craft --help',
+  '  craft help scan',
+  '  craft help project scan',
+  '  craft scan --help',
+  '  craft project scan --help',
   '  craft <validate|inspect> <artifact-path>',
   '  craft scan <repository-path>',
   '  craft project scan <repository-path>',
@@ -73,6 +79,17 @@ const USAGE = [
   '  craft mutation import-pit <report-id> <plan-id> <tool-version> <sha256:configuration> <execution-evidence-path> <mutations.xml> <artifact-path>...',
   '  craft mutation baseline create <baseline-id> <mutation-report-path>',
   '  craft mutation evaluate <report-id> <baseline-id|-> <profile-id> <artifact-path>...',
+].join('\n');
+
+const SCAN_HELP = [
+  'Usage:',
+  '  craft scan <repository-path>',
+  '  craft project scan <repository-path>',
+  '',
+  'Read supported repository manifests without executing target project code.',
+  'On success, write one candidate project_profile YAML artifact to stdout.',
+  'On failure, write one craftcompass_command_error JSON object to stderr.',
+  'Both scan command forms are equivalent.',
 ].join('\n');
 
 const FORMAT_CHARACTER_PATTERN = /\p{Cf}/u;
@@ -106,6 +123,29 @@ const errorMessage = (error: unknown): string =>
   escapeTerminalDynamicText(
     error instanceof Error ? error.message : String(error),
   );
+
+const commandErrorCode = (error: unknown): string => {
+  if (typeof error !== 'object' || error === null) {
+    return 'repository_scan_failed';
+  }
+  try {
+    const code = (error as { readonly code?: unknown }).code;
+    return typeof code === 'string' && code.length > 0
+      ? escapeTerminalDynamicText(code)
+      : 'repository_scan_failed';
+  } catch {
+    return 'repository_scan_failed';
+  }
+};
+
+const formatRepositoryScanError = (error: unknown): string =>
+  JSON.stringify({
+    schema_version: 1,
+    kind: 'craftcompass_command_error',
+    command: 'project_scan',
+    code: commandErrorCode(error),
+    message: errorMessage(error),
+  });
 
 const formatTerminalIssue = (issue: {
   readonly path: string;
@@ -155,6 +195,10 @@ const countSupportedReferences = (artifact: CraftArtifact): number => {
               : countSourceReferences(module.architecture_role.evidence)),
           0,
         ) +
+        (artifact.observation_coverage?.inputs.reduce(
+          (count, input) => count + countSourceReferences(input.evidence),
+          0,
+        ) ?? 0) +
         artifact.observations.reduce(
           (count, observation) =>
             count + countSourceReferences(observation.evidence),
@@ -345,6 +389,23 @@ export const runCli = async (
   args: readonly string[],
   dependencies: CliDependencies,
 ): Promise<number> => {
+  if (args.length === 1 && (args[0] === '--help' || args[0] === 'help')) {
+    dependencies.writeOut(USAGE);
+    return 0;
+  }
+
+  if (
+    (args.length === 2 &&
+      ((args[0] === 'help' && args[1] === 'scan') ||
+        (args[0] === 'scan' && args[1] === '--help'))) ||
+    (args.length === 3 &&
+      ((args[0] === 'help' && args[1] === 'project' && args[2] === 'scan') ||
+        (args[0] === 'project' && args[1] === 'scan' && args[2] === '--help')))
+  ) {
+    dependencies.writeOut(SCAN_HELP);
+    return 0;
+  }
+
   if (args[0] === 'mutation') {
     if (args[1] === 'import-pit') {
       if (
@@ -803,7 +864,7 @@ export const runCli = async (
       dependencies.writeOut(dependencies.serializeArtifact(profile));
       return 0;
     } catch (error) {
-      dependencies.writeError(errorMessage(error));
+      dependencies.writeError(formatRepositoryScanError(error));
       return 1;
     }
   }

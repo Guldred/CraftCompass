@@ -45,3 +45,10 @@ plugins.
   ecosystems remain unsupported until parser-backed fixtures exist.
 - False negatives are preferred to false certainty.
 - Node filesystem and XML/JSON parser types remain outside the domain.
+
+## Extension
+
+[ADR 0010](0010-bounded-composite-repository-observation.md) extends this
+decision with explicit observation coverage, module-discovery provenance, and
+declared-first bounded composition for multi-build repositories. It does not
+change this ADR's positive-only evidence rule.

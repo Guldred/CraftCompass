@@ -1,12 +1,8 @@
 # Mutation assurance
 
-Use `<launcher>` to mean:
-
-```text
-node <skill-directory>/scripts/craftcompass.mjs
-```
-
-Run it from the target repository root. Prefer absolute artifact paths.
+Use the exact `<supported-node>` and `<launcher>` bindings established by
+`SKILL.md` for the entire workflow. Run `<launcher>` from the target repository
+root. Prefer absolute artifact paths.
 
 ## Import attested PIT data
 

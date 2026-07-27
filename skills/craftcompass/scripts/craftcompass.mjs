@@ -392,6 +392,11 @@ const inspectEnvironment = () => {
         status: 'skipped',
         code: 'blocked_by_package_integrity',
       },
+      {
+        id: 'publisher_authenticity',
+        status: 'unverified',
+        code: 'publisher_authenticity_unverified',
+      },
     ];
     return {
       report: {
@@ -406,7 +411,10 @@ const inspectEnvironment = () => {
         node: process.versions.node,
         node_supported: isSupportedNode(process.versions.node),
         package_integrity: false,
+        package_integrity_verified: false,
         runtime_main_present: false,
+        packaged_source_declared_clean: null,
+        publisher_authenticity_unverified: true,
         ready: false,
         checks,
       },
@@ -422,6 +430,8 @@ const inspectEnvironment = () => {
   }
   const packageIntegrity = verified !== undefined;
   const sourceDirty = verified?.sourceDirty ?? null;
+  const packagedSourceDeclaredClean =
+    sourceDirty === null ? null : sourceDirty === false;
   const checks = [
     {
       id: 'platform',
@@ -461,8 +471,13 @@ const inspectEnvironment = () => {
         sourceDirty === null
           ? 'blocked_by_package_integrity'
           : sourceDirty
-            ? 'dirty_source_provenance'
-            : 'clean_source_provenance',
+            ? 'packaged_source_declared_dirty'
+            : 'packaged_source_declared_clean',
+    },
+    {
+      id: 'publisher_authenticity',
+      status: 'unverified',
+      code: 'publisher_authenticity_unverified',
     },
   ];
   const ready =
@@ -483,7 +498,10 @@ const inspectEnvironment = () => {
     node: process.versions.node,
     node_supported: nodeSupported,
     package_integrity: packageIntegrity,
+    package_integrity_verified: packageIntegrity,
     runtime_main_present: packageIntegrity,
+    packaged_source_declared_clean: packagedSourceDeclaredClean,
+    publisher_authenticity_unverified: true,
     ready,
     checks,
   };

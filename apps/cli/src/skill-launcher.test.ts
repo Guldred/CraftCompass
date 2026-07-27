@@ -31,7 +31,10 @@ interface DoctorCheck {
 interface DoctorReport {
   readonly ready: boolean;
   readonly package_integrity: boolean;
+  readonly package_integrity_verified: boolean;
   readonly source_dirty: boolean | null;
+  readonly packaged_source_declared_clean: boolean | null;
+  readonly publisher_authenticity_unverified: boolean;
   readonly checks: readonly DoctorCheck[];
 }
 
@@ -49,6 +52,19 @@ const LAUNCHER_SOURCE = path.join(
   'craftcompass',
   'scripts',
   'craftcompass.mjs',
+);
+const SKILL_SOURCE = path.join(
+  REPOSITORY_ROOT,
+  'skills',
+  'craftcompass',
+  'SKILL.md',
+);
+const WORKFLOW_REFERENCES = [
+  'assessment.md',
+  'assurance.md',
+  'mutation.md',
+].map((name) =>
+  path.join(REPOSITORY_ROOT, 'skills', 'craftcompass', 'references', name),
 );
 const SOURCE_COMMIT = 'a'.repeat(40);
 const temporaryDirectories: string[] = [];
@@ -202,6 +218,15 @@ describe('CraftCompass installed-skill launcher', () => {
     expect(doctor.status, JSON.stringify(doctor.report)).toBe(0);
     expect(doctor.report.ready).toBe(true);
     expect(doctor.report.package_integrity).toBe(true);
+    expect(doctor.report.package_integrity_verified).toBe(true);
+    expect(doctor.report.packaged_source_declared_clean).toBe(true);
+    expect(doctor.report.publisher_authenticity_unverified).toBe(true);
+    expect(checkCode(doctor.report, 'source_provenance')).toBe(
+      'packaged_source_declared_clean',
+    );
+    expect(checkCode(doctor.report, 'publisher_authenticity')).toBe(
+      'publisher_authenticity_unverified',
+    );
     expect(run.status).toBe(0);
     expect(JSON.parse(run.stdout)).toEqual({
       arguments: ['probe', 'value'],
@@ -216,9 +241,37 @@ describe('CraftCompass installed-skill launcher', () => {
 
     expect(doctor.status).toBe(1);
     expect(doctor.report.package_integrity).toBe(true);
+    expect(doctor.report.package_integrity_verified).toBe(true);
     expect(doctor.report.source_dirty).toBe(true);
+    expect(doctor.report.packaged_source_declared_clean).toBe(false);
+    expect(doctor.report.publisher_authenticity_unverified).toBe(true);
     expect(checkCode(doctor.report, 'source_provenance')).toBe(
-      'dirty_source_provenance',
+      'packaged_source_declared_dirty',
+    );
+  });
+
+  it('binds one supported Node launcher for the complete skill workflow', () => {
+    const skill = readFileSync(SKILL_SOURCE, 'utf8');
+    const workflows = WORKFLOW_REFERENCES.map((reference) =>
+      readFileSync(reference, 'utf8'),
+    );
+
+    expect(skill).toContain(
+      'Bind that path to `<supported-node>`, then bind\n   `<launcher>` exactly to:',
+    );
+    expect(skill).toContain(
+      '<supported-node> <skill-directory>/scripts/craftcompass.mjs',
+    );
+    expect(skill).toContain(
+      'keep the exact `<supported-node>` and\n   `<launcher>` bindings for the rest of this skill run',
+    );
+    workflows.forEach((workflow) => {
+      expect(workflow).toContain(
+        'Use the exact `<supported-node>` and `<launcher>` bindings established by\n`SKILL.md` for the entire workflow.',
+      );
+    });
+    expect([skill, ...workflows].join('\n')).not.toContain(
+      'node <skill-directory>/scripts/craftcompass.mjs',
     );
   });
 

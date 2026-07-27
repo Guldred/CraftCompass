@@ -1,0 +1,44 @@
+schema_version: 1
+kind: project_profile
+id: PROJECT-PARTIAL-WITHOUT-LIMITATION
+name: partial-without-limitation
+technologies: []
+modules: []
+observations:
+  - id: OBS-REPOSITORY-ROOT
+    type: fact
+    statement: The repository root was observed.
+    confidence: 1
+    evidence:
+      - id: EV-REPOSITORY-ROOT
+        type: source_file
+        description: The bounded repository observation started at this root.
+        location: .
+constraints: []
+uncertainties: []
+observation_coverage:
+  status: partial
+  provider:
+    id: filesystem_repository_scanner
+    contract_version: '1'
+  capabilities:
+    - id: declared_project_context
+      status: partial
+  inputs:
+    - path: .
+      kind: directory
+      status: observed
+      evidence:
+        - id: EV-REPOSITORY-ROOT
+          type: source_file
+          description: The bounded repository observation started at this root.
+          location: .
+  limits:
+    max_declared_module_depth: 8
+    max_declared_module_declarations: 4096
+    max_discovery_depth: 4
+    max_directories: 512
+    max_entries_per_directory: 1024
+    max_manifests: 256
+    max_total_manifest_bytes: 16777216
+  limitations: []

@@ -178,6 +178,14 @@ const collectEvidence = (entry: LocatedArtifact): EvidenceOccurrence[] => {
                 module.architecture_role.evidence,
               ),
         ),
+        ...(artifact.observation_coverage?.inputs.flatMap((input, inputIndex) =>
+          evidenceOccurrences(
+            origin,
+            scope,
+            `$.observation_coverage.inputs[${inputIndex}].evidence`,
+            input.evidence,
+          ),
+        ) ?? []),
         ...artifact.observations.flatMap((observation, observationIndex) =>
           evidenceOccurrences(
             origin,

@@ -398,6 +398,13 @@ describe('artifact registry', () => {
         evidence.source_ref = sourceReference.id;
       }
     });
+    profile.observation_coverage?.inputs.forEach((input) => {
+      input.evidence.forEach((evidence) => {
+        if (evidence.id === observationEvidence.id) {
+          evidence.source_ref = sourceReference.id;
+        }
+      });
+    });
     const derivation = deriveRule(profile);
     const entries = [
       located('rules/dependency.yaml', derivation.rule),
@@ -616,6 +623,35 @@ describe('artifact registry', () => {
     ]);
 
     expect(result.success).toBe(true);
+  });
+
+  it('checks repository-observation coverage evidence for conflicts', async () => {
+    const profile = await loadProfile('new-business-service.json');
+    const coverageEvidence =
+      profile.observation_coverage?.inputs[0]?.evidence[0];
+    expect(coverageEvidence).toBeDefined();
+    if (coverageEvidence === undefined) {
+      return;
+    }
+    coverageEvidence.description =
+      'A conflicting description of the repository observation evidence.';
+
+    const result = createArtifactRegistry([
+      located('projects/payments.yaml', profile),
+    ]);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'conflicting_evidence_reference',
+            origin: 'projects/payments.yaml',
+            path: '$.observation_coverage.inputs[0].evidence[0]',
+          }),
+        ]),
+      );
+    }
   });
 
   it('scopes evidence identities to their owning projects', async () => {

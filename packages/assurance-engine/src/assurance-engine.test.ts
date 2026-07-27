@@ -699,6 +699,18 @@ describe('deterministic assurance planning', () => {
         'GATES-V1',
         'REVIEW-V1',
       ]);
+      expect(first.plan.derivation_evidence).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'EV-PAYMENTS-ARCHITECTURE-DECISION',
+          }),
+        ]),
+      );
+      expect(
+        first.plan.decision_trace?.find(
+          (decision) => decision.code === 'REVIEW-V1',
+        )?.evidence_refs,
+      ).toContain('EV-PAYMENTS-ARCHITECTURE-DECISION');
     }
   });
 
@@ -785,6 +797,154 @@ describe('deterministic assurance planning', () => {
       if (result.success) {
         expect(result.plan.human_review.level).toBe(1);
       }
+    });
+  });
+
+  it.each([
+    ['missing', undefined],
+    [
+      'complete but not assurance-relevant',
+      {
+        status: 'complete_for_declared_scope',
+        provider: {
+          id: 'filesystem_repository_scanner',
+          contract_version: '1',
+        },
+        capabilities: [
+          {
+            id: 'bounded_manifest_observation',
+            status: 'supported',
+          },
+        ],
+        inputs: [
+          {
+            path: 'pom.xml',
+            kind: 'manifest',
+            status: 'parsed',
+            evidence: [
+              {
+                id: 'EV-BOUNDED-MANIFEST',
+                type: 'build_configuration',
+                description: 'A supported root manifest was parsed.',
+                location: 'pom.xml',
+                provider: 'filesystem',
+              },
+            ],
+          },
+        ],
+        limitations: [],
+      },
+    ],
+    [
+      'self-declared assurance-relevant context without human-decision evidence',
+      {
+        status: 'complete_for_declared_scope',
+        provider: {
+          id: 'self_declared_project_profile',
+          contract_version: '1',
+        },
+        capabilities: [
+          {
+            id: 'assurance_relevant_project_context',
+            status: 'supported',
+          },
+        ],
+        inputs: [
+          {
+            path: 'pom.xml',
+            kind: 'manifest',
+            status: 'parsed',
+            evidence: [
+              {
+                id: 'EV-SELF-DECLARED-PROJECT-CONTEXT',
+                type: 'build_configuration',
+                description:
+                  'A build file alone claims assurance-relevant project context.',
+                location: 'pom.xml',
+                provider: 'self_declared',
+              },
+            ],
+          },
+        ],
+        limitations: [],
+      },
+    ],
+    [
+      'partial',
+      {
+        status: 'partial',
+        provider: {
+          id: 'filesystem_repository_scanner',
+          contract_version: '1',
+        },
+        capabilities: [
+          {
+            id: 'declared_project_context',
+            status: 'partial',
+          },
+        ],
+        inputs: [],
+        limitations: ['The repository observation was intentionally bounded.'],
+      },
+    ],
+  ] satisfies readonly (readonly [
+    string,
+    ProjectProfile['observation_coverage'],
+  ])[])(
+    'does not grant Level 2 when project observation coverage is %s',
+    async (_coverageCase, observationCoverage) => {
+      const project = await loadProject();
+      project.observation_coverage = observationCoverage;
+      const profile = assuranceProfileFor(project.id);
+      const change = changeFor();
+
+      const result = deriveAssurancePlan({
+        id: 'PLAN-OBSERVATION-COVERAGE',
+        project,
+        profile,
+        change,
+        impact: observedImpactFor(change),
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.plan.human_review.level).toBe(1);
+        expect(result.plan.human_review.rationale).toContain(
+          'Project observation coverage is missing, partial, unknown, not declared fit for assurance-relevant project context, or lacks human-decision input evidence, so it cannot support reduced review.',
+        );
+      }
+    },
+  );
+
+  it('rejects conflicting project-coverage evidence in the assurance decision basis', async () => {
+    const project = await loadProject();
+    const coverageEvidence =
+      project.observation_coverage?.inputs[0]?.evidence[0];
+    expect(coverageEvidence).toBeDefined();
+    if (coverageEvidence === undefined) {
+      return;
+    }
+    coverageEvidence.id = readinessEvidence.id;
+    const profile = assuranceProfileFor(project.id);
+    const change = changeFor();
+
+    const result = deriveAssurancePlan({
+      id: 'PLAN-CONFLICTING-COVERAGE-EVIDENCE',
+      project,
+      profile,
+      change,
+      impact: observedImpactFor(change),
+    });
+
+    expect(result).toEqual({
+      success: false,
+      issues: [
+        {
+          code: 'conflicting_evidence',
+          path: '$.derivation_evidence',
+          message: `Evidence ${readinessEvidence.id} has conflicting definitions`,
+        },
+      ],
     });
   });
 
