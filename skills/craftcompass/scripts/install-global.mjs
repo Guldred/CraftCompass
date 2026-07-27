@@ -473,13 +473,54 @@ const assertSnapshotIdentity = (snapshotRoot) => {
   }
 };
 
-const resolvePnpmStoreRoot = () => {
-  const versionedStore = runCaptured('pnpm', ['store', 'path'], repositoryRoot);
+const resolvePnpmStoreRoot = (snapshotRoot) => {
+  const modulesMetadataPath = path.join(
+    repositoryRoot,
+    'node_modules',
+    '.modules.yaml',
+  );
+  let modulesMetadata;
+  try {
+    modulesMetadata = JSON.parse(
+      utf8Decoder.decode(readStableSourceFile(modulesMetadataPath).bytes),
+    );
+  } catch (error) {
+    throw new Error(
+      `could not parse installed pnpm metadata: ${errorMessage(error)}`,
+      { cause: error },
+    );
+  }
+  const versionedStore = modulesMetadata?.storeDir;
+  const virtualStoreSetting = modulesMetadata?.virtualStoreDir;
   if (
+    typeof versionedStore !== 'string' ||
     !path.isAbsolute(versionedStore) ||
     path.basename(versionedStore) !== 'v10'
   ) {
-    fail(`pnpm returned an unexpected versioned store path: ${versionedStore}`);
+    fail('installed pnpm metadata has an unexpected store path');
+  }
+  if (
+    typeof virtualStoreSetting !== 'string' ||
+    virtualStoreSetting.length === 0
+  ) {
+    fail('installed pnpm metadata has an unexpected virtual store path');
+  }
+  const virtualStore = assertAbsoluteDirectory(
+    path.isAbsolute(virtualStoreSetting)
+      ? virtualStoreSetting
+      : path.resolve(path.dirname(modulesMetadataPath), virtualStoreSetting),
+    'pnpm virtual store',
+  );
+  const installedLock = readStableSourceFile(
+    path.join(virtualStore, 'lock.yaml'),
+  ).bytes;
+  const snapshotLock = readStableSourceFile(
+    path.join(snapshotRoot, 'pnpm-lock.yaml'),
+  ).bytes;
+  if (!installedLock.equals(snapshotLock)) {
+    fail(
+      'installed pnpm dependency metadata does not match the source snapshot lockfile',
+    );
   }
   assertAbsoluteDirectory(versionedStore, 'pnpm versioned content store');
   return assertAbsoluteDirectory(
@@ -499,7 +540,7 @@ const prepareBuildSnapshot = (buildWork, state) => {
   assertSnapshotTree(snapshotRoot);
   assertSnapshotIdentity(snapshotRoot);
 
-  const storeRoot = resolvePnpmStoreRoot();
+  const storeRoot = resolvePnpmStoreRoot(snapshotRoot);
   runInherited(
     'pnpm',
     [
