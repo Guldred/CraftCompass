@@ -10,10 +10,13 @@ Every persisted artifact is a strict, versioned mapping with
 | `craftsmanship_principle` | Long-lived, contextual engineering principle                           |
 | `practice_statement`      | Attributed practice, current position, experiment, or product decision |
 | `project_profile`         | Evidence-aware project state and constraints                           |
+| `change_context`          | Evidence-backed changed files and symbols                              |
+| `change_impact`           | Normalized direct, indirect, flow, cluster, and test impact            |
 | `project_rule`            | Contextual, traceable adaptation of principles                         |
 | `assurance_profile`       | Project-wide verification and review policy                            |
 | `assurance_plan`          | Change-specific verification and human-review requirements             |
 | `mutation_report`         | Provider-neutral mutation outcomes and survivor evidence               |
+| `mutation_baseline`       | Human-governed mutation-debt comparison point                          |
 
 Zod schemas are the runtime source of truth. A second handwritten JSON Schema is
 not maintained because it would duplicate cross-field and time-dependent
@@ -134,6 +137,11 @@ explainability. Only an active rule at the `mandatory` level can have blocking
 enforcement; recommendations, contextual guidance, candidates, and retired
 rules remain non-blocking.
 
+Activation is itself a human decision: every active rule carries
+`human_decision` evidence. Every active exception does too. A generated
+candidate or a file marker can never silently promote guidance or grant an
+exception.
+
 Every `ProjectRule` requires:
 
 - one project reference,
@@ -185,14 +193,20 @@ owner, and expiration are required. An active `RuleException` records:
 - reason,
 - owner,
 - scope,
+- optional machine-readable artifact and mutation selectors,
 - expiration date,
 - evidence.
 
 Schema structure and expiration are separate concerns. The structural schema
-checks the record; artifact validation compares `expires_on` with an injected
-reference date. An expired exception invalidates the artifact and cannot waive a
-rule or assurance requirement. Schema version 1 interprets that reference date
-in UTC so the same input and instant produce the same decision in every locale.
+checks the record; default artifact validation compares `expires_on` with an
+injected reference date and rejects an expired exception. Mutation-policy
+evaluation uses an explicit preservation mode only long enough to classify
+applicable expired debt as a failed policy outcome instead of an unrelated
+registry error. An expired exception never waives a rule or assurance
+requirement. Schema version 1 interprets the reference date in UTC so the same
+input and instant produce the same decision in every locale. An accepted-risk
+mutation must use an exception whose mutation selectors explicitly include
+that exact mutation ID; prose scope alone cannot waive it.
 
 ## Assurance
 
@@ -201,7 +215,7 @@ in UTC so the same input and instant produce the same decision in every locale.
 `AssuranceProfile` records project-wide choices for:
 
 - criticality and generated-code share,
-- Review Level defaults and review targets,
+- a maximum Review Level and review targets,
 - unit, acceptance, and integration test policy,
 - architecture checks and baselines,
 - mutation policy,
@@ -226,6 +240,11 @@ Review Level is exactly `0 | 1 | 2`:
 
 Level 3 requires a future schema and explicit product decision.
 
+The configured profile level is a ceiling, not an automatic entitlement. A
+change-specific plan may choose a lower level when risk, evidence quality, or
+project readiness requires more human review. Generated instructions therefore
+defer to the plan and require conservative Level 0 review when no plan exists.
+
 ### Mutation policy and evidence
 
 `MutationPolicy.strategy` is always:
@@ -242,7 +261,7 @@ Regression is forbidden. A score can be reported only with
 Execution outcomes remain distinct from survivor interpretation:
 
 ```text
-killed | survived | no_coverage | timed_out | errors
+killed | survived | no_coverage | timed_out | error
 ```
 
 `MutationClassification` is:
@@ -258,16 +277,34 @@ accepted_risk
 unknown
 ```
 
-Each survivor also has a classification status. An equivalent value can remain
-a candidate; it is not automatically approved. `unknown` must remain unresolved.
-`accepted_risk` requires an accepted exception and explicit exception reference.
+Each debt-bearing result also has a classification status. An equivalent value
+can remain a candidate; it is not automatically approved. `unknown` must remain
+unresolved. `accepted_risk` requires an accepted exception and explicit
+exception reference.
 
-A `MutationReport` preserves target scope, scope confidence, limitations,
-outcome totals, each survivor, baseline comparison, and assurance evidence.
-Baseline comparison lists the exact new and resolved survivor IDs as well as
-their counts. Generated count must equal all normalized outcomes, survivor count
-must match the survivor records, and every new ID must resolve to a current
-survivor.
+A `MutationReport` preserves provider identity, tool and normalization versions,
+target and test scope, scope confidence, limitations, execution completeness,
+outcome totals, every mutation outcome, and assurance evidence. Generated count
+must equal the exact partition of all normalized outcomes. A passed mutation
+gate requires a complete, non-empty, all-killed run whose execution provenance
+matches the report. A fingerprint-bearing report must identify a
+`build_configuration` evidence reference from the same provider, so execution
+strings alone are not structurally decision-eligible. The evidence pointer
+remains a caller assertion, not cryptographic proof.
+
+A `MutationBaseline` is either `candidate`, `active`, or `superseded`.
+CLI-created baselines are always inert candidates. Activation requires human
+evidence, a complete non-empty source report, exact source totals, no provider
+errors or timeouts, and the tool version used. Comparison is allowed only when
+project, profile, provider, versions, targets, tests, and scope are identical.
+Missing or incomparable baselines produce an inconclusive decision rather than
+silently accepting a run. Creation cannot be in the future, and activation
+cannot predate creation or carry a future review date.
+
+Policy evaluates exact mutation IDs and classifications. New unexplained debt
+fails. Existing debt can remain only under its recorded classification and
+governance; accepted risk must resolve to the same active, unexpired exception.
+A score may be displayed as context but is never a decision input.
 
 ## Provider ports and adapters
 
@@ -283,3 +320,10 @@ CI.
 `packages/providers-filesystem` is a separate repository-observation adapter,
 not a code-graph or mutation provider. It maps bounded filesystem evidence into
 `ProjectProfile` without exposing Node paths or parser types in the domain.
+
+`packages/providers-pitest` parses bounded PIT XML and normalizes it into the
+provider-neutral mutation model. A PIT source-file name is preserved as
+provider data; it is not claimed to be a repository path unless a separate,
+explicit resolution supplies one. Complete policy evidence additionally
+requires caller attestation binding the import to an exact assurance plan,
+scope, configuration fingerprint, version, and evidence location.

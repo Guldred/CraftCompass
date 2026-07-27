@@ -86,7 +86,7 @@ Delivered:
 
 ## Slice 3: Fake code-graph provider
 
-Status: in progress.
+Status: complete.
 
 Exercise `CodeGraphProvider` with deterministic responses before a GitNexus
 adapter. Add change impact, graph limitations, and scope-confidence behavior.
@@ -97,9 +97,20 @@ Exit criteria:
 - graph centrality and cluster membership remain signals rather than verdicts,
 - no provider type leaks into domain artifacts.
 
+Delivered:
+
+- strict `ChangeContext` and `ChangeImpact` artifacts,
+- a fixture-only fake `CodeGraphProvider`,
+- deterministic direct, indirect, degraded, unavailable, and provider-error
+  behavior,
+- explicit confidence caps and limitations for diff-only fallback,
+- pure mutation-scope and Review Level 0–2 assurance-plan derivation,
+- `craft assurance plan`.
+
 ## Slice 4: Mutation report parsing and baselines
 
-Status: planned after Slice 3.
+Status: complete for report ingestion and policy evaluation. Mutation-process
+execution remains deferred.
 
 Implement a fixture-backed provider adapter parser without executing mutation
 tools initially. Normalize killed, survived, no-coverage, timed-out, and error
@@ -112,12 +123,52 @@ Exit criteria:
 - score is contextual only,
 - provider errors and scope limitations remain visible.
 
+Delivered:
+
+- lossless provider-neutral mutation records for killed, survived, no-coverage,
+  timed-out, and error outcomes,
+- a bounded, fail-closed PIT XML parser with semantic mutation identities,
+- explicit execution attestation that binds a report to one assurance plan,
+  exact mutation scope, configuration fingerprint, version, and evidence,
+- candidate-only baseline creation and separately human-activated baselines,
+- strict baseline comparability and record-level debt deltas,
+- pass, fail, and inconclusive policy outcomes that never decide by score,
+- `craft mutation import-pit`, `craft mutation baseline create`, and
+  `craft mutation evaluate`.
+
+## Slice 5: Deterministic agent instructions
+
+Status: complete.
+
+Compile active project rules and an assurance profile into bounded,
+deterministic Markdown for coding agents. Treat all human-authored descriptions
+and scopes as untrusted display data.
+
+Exit criteria:
+
+- active mandatory rules render as `MUST`, recommendations as `SHOULD`, and
+  undecided applicability remains an explicit stop point,
+- source evidence, reasons, and provider configuration cannot leak into the
+  generated file,
+- expired exceptions cannot be rendered as active,
+- assurance-plan output remains authoritative over the project-wide review
+  ceiling,
+- an existing `AGENTS.md` is never overwritten automatically.
+
+Delivered:
+
+- runtime-validated artifact-registry compilation with an injected effective
+  date,
+- escaped, size- and cardinality-bounded Markdown rendering,
+- explicit Level 0–2 semantics and conservative no-plan behavior,
+- read-only drift checks and create-only atomic installation,
+- `craft instructions render`, `craft instructions install`, and
+  `craft instructions check`.
+
 ## Later slices
 
 - real GitNexus adapter and index-freshness evidence,
 - PIT execution for Maven through an injectable command runner,
-- broader assurance planning and Review Level 0–2 recommendation,
-- rule and agent-instruction compilation,
 - evidence-ledger persistence,
 - MCP, CI, GitHub, and GitLab adapters,
 - broader mutation providers,

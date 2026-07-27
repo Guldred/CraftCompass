@@ -2,23 +2,29 @@
 
 ## Current outcome
 
-The completed foundation, repository-observation, and deterministic-adaptation
-slices establish a stable artifact boundary and a first useful project workflow.
-A repository can be observed without inventing facts, its resulting profile can
-join a validated artifact registry, and typed context can produce an
-explainable non-blocking project-rule candidate.
+The completed foundation, repository-observation, deterministic-adaptation,
+graph-assurance, mutation-ingestion, and instruction-compilation slices provide
+an end-to-end local workflow without claiming unavailable integrations. A
+repository can be observed without inventing facts; connected artifacts can
+produce candidate rules and a change-specific assurance plan; attested PIT
+output can be evaluated against human-governed debt; active guidance can become
+bounded agent instructions.
 
-The implementation contains three workspaces:
+The implementation contains seven workspaces:
 
-- `packages/domain` owns domain concepts, Zod schemas, semantic invariants, and
+- `packages/domain` owns domain concepts, Zod schemas, semantic invariants,
   provider ports, reference resolution, and pure rule derivation.
 - `packages/providers-filesystem` owns safe repository traversal and structural
   package.json/Maven parsing.
-- `apps/cli` owns files, YAML, terminal output, and process exit codes.
-
-Logical domain modules remain cohesive source files inside one package. They can
-be extracted into packages only after independent behavior creates a meaningful
-dependency boundary.
+- `packages/assurance-engine` owns change-impact normalization, a synthetic
+  graph provider, mutation-scope derivation, and assurance planning.
+- `packages/providers-pitest` owns bounded PIT XML parsing and attested
+  provider-neutral normalization.
+- `packages/mutation-engine` owns baseline creation, comparability, debt deltas,
+  and policy evaluation.
+- `packages/instruction-compiler` owns bounded, deterministic agent guidance.
+- `apps/cli` owns files, YAML, terminal output, atomic instruction installation,
+  and process exit codes.
 
 ## Dependency direction
 
@@ -27,16 +33,28 @@ flowchart LR
     USER["User or automation"]
     CLI["apps/cli"]
     DOMAIN["packages/domain"]
-    REPO["packages/providers-filesystem"]
+    REPO["providers-filesystem"]
+    ASSURE["assurance-engine"]
+    PIT["providers-pitest"]
+    MUTATION["mutation-engine"]
+    INSTRUCTIONS["instruction-compiler"]
     ZOD["Zod"]
     YAML["YAML parser"]
     FS["Node filesystem"]
-    FUTURE["Future providers"]
+    FUTURE["Future real providers"]
 
     USER --> CLI
     CLI --> DOMAIN
     CLI --> REPO
+    CLI --> ASSURE
+    CLI --> PIT
+    CLI --> MUTATION
+    CLI --> INSTRUCTIONS
     REPO --> DOMAIN
+    ASSURE --> DOMAIN
+    PIT --> DOMAIN
+    MUTATION --> DOMAIN
+    INSTRUCTIONS --> DOMAIN
     REPO --> FS
     CLI --> YAML
     CLI --> FS
@@ -44,32 +62,24 @@ flowchart LR
     FUTURE -. "implement ports later" .-> DOMAIN
 ```
 
-The domain must not import:
+The domain must not import filesystem or path APIs, YAML libraries, process
+execution, GitNexus or MCP contracts, LLM SDKs, mutation tools, HTTP or CI
+frameworks, or source-forge APIs.
 
-- filesystem or path APIs,
-- YAML libraries,
-- shell or process execution,
-- GitNexus or MCP contracts,
-- LLM SDKs,
-- PIT, Stryker, or other mutation tools,
-- HTTP or CI frameworks,
-- GitHub or GitLab APIs.
-
-`CodeGraphProvider` and `MutationTestingProvider` remain explicit future
-substitution boundaries. The filesystem package implements a concrete
-repository-observation boundary rather than either of those ports.
+`CodeGraphProvider` and `MutationTestingProvider` remain explicit substitution
+boundaries. The filesystem package implements repository observation rather
+than either port. The code-graph implementation is permanently synthetic and
+fixture-backed. The PIT adapter ingests reports but never executes PIT.
 
 ## Artifact flow
 
 ```text
 read file
-  -> parse YAML syntax
-  -> require exactly one YAML document
+  -> parse exactly one YAML document
   -> inspect schema_version and kind
   -> select one strict domain schema
-  -> validate structure and cross-field invariants
-  -> evaluate time-sensitive exception validity with an injected clock
-  -> return typed artifact or actionable issues
+  -> validate structure, cross-field invariants, and time-sensitive state
+  -> return a typed artifact or actionable issues
   -> render interface-specific output
 ```
 
@@ -82,38 +92,44 @@ input files/directories
   -> recursively sort and deduplicate YAML paths
   -> parse and validate every artifact in lexical order
   -> enforce global IDs and typed references
-  -> derive from typed project context
-  -> validate and serialize a candidate rule
+  -> derive from typed project/change context
+  -> validate and serialize a candidate rule or assurance plan
+```
+
+Mutation import adds a second trust boundary:
+
+```text
+bounded no-follow XML read
+  -> strict structural and semantic PIT parsing
+  -> exact outcome partition and stable semantic IDs
+  -> plan/scope/configuration/version attestation
+  -> provider-neutral mutation report
+  -> active-baseline comparability and exact debt delta
+  -> pass, fail, or inconclusive policy result
 ```
 
 Artifact type is never guessed from a filename and schemas are not tried in an
-arbitrary order. Every supported document carries:
-
-```yaml
-schema_version: 1
-kind: project_rule
-id: RULE-DOMAIN-DEPENDENCY-001
-```
-
-Unknown fields are rejected so authoring mistakes do not silently disappear.
-Unknown versions and kinds fail before detailed validation with one direct
-compatibility error.
+arbitrary order. Unknown fields are rejected. Unknown versions and kinds fail
+before detailed validation with one direct compatibility error.
 
 ## Stable and deterministic behavior
 
 - Serialized enum values and YAML fields use lower snake case.
-- Confidence is a finite inclusive value from `0` through `1`.
+- Confidence is finite and inclusive from `0` through `1`.
 - YAML serialization sorts mapping keys.
-- Inspection lists derived categories in lexical order.
-- Tests inject the UTC reference date used for exception expiration.
+- Tests inject the UTC reference date used for expiration.
 - Important behavior uses explicit assertions, not snapshots.
-- Source and evidence references are preserved on semantic round trips.
+- Source and evidence references survive semantic round trips.
 - Registry results and issues are independent of input order.
 - Repository profiles contain only repository-relative POSIX evidence paths.
-- Candidate rules use stable recipe IDs and remain non-blocking until accepted.
+- Candidate rules remain non-blocking until a human activates them.
+- Missing or degraded graph evidence lowers confidence and keeps limitations.
+- Mutation comparisons use exact IDs and canonical scope, never a score.
+- Generated instructions use a caller-supplied effective date and stable order.
 
-The CLI's default clock makes expiration meaningful in real use. The domain
-accepts an explicit clock value so tests and callers can reproduce a decision.
+The CLI's default clock makes expiration meaningful in real use. Pure domain
+and compiler boundaries accept explicit clock values so tests and callers can
+reproduce a decision.
 
 ## Evidence before judgment
 
@@ -124,24 +140,20 @@ Three separate evidence concepts prevent provenance from being collapsed:
 3. `AssuranceEvidence` records normalized verification evidence and optional
    execution metadata.
 
-`ProjectObservation.type` explicitly distinguishes fact, interpretation,
-assumption, uncertainty, decision, and known debt. An inferred architecture is
-therefore never serialized as an observed fact merely because its confidence is
-high.
+`ProjectObservation.type` distinguishes fact, interpretation, assumption,
+uncertainty, decision, and known debt. An inferred architecture is never
+serialized as an observed fact merely because its confidence is high.
 
-Detected technologies and modules also carry their own evidence. Unsupported
-and malformed repositories may legitimately have empty technology/module lists
-as long as their uncertainty is explicit. `adaptation_context` is typed and
-evidence-linked; derivation never mines free-form observation prose. A module's
-boundary status is separate from its optional `architecture_role`. Semantic
-roles carry their own candidate/confirmed status, confidence, observation
-references, and exact evidence closure. A confirmed role requires a
-human-backed project decision.
+Detected technologies and modules carry their own evidence. Unsupported and
+malformed repositories may legitimately have empty technology/module lists
+when their uncertainty is explicit. `adaptation_context` is typed and
+evidence-linked; derivation never mines free-form observation prose. Confirmed
+module roles require a human-backed project decision.
 
 ## Repository observation trust boundary
 
-The filesystem provider recognizes only behavior backed by fixtures and a real
-parser:
+The filesystem provider recognizes only behavior backed by fixtures and real
+parsers:
 
 - package.json, package-manager declarations/lockfiles, and tsconfig,
 - Maven project models, trusted group/artifact coordinates, Java source roots,
@@ -156,50 +168,69 @@ Package-manager conflicts do not become a guessed tool.
 
 The registry proves globally unique artifact IDs and resolves:
 
-- rule to project and principles,
-- rule observation references inside that project,
-- rule module references inside that project,
-- exact rule evidence back to those observations and modules,
-- assurance profile/plan project references,
+- rules to projects, principles, observations, modules, and exact evidence,
+- assurance profiles and plans to their projects and change inputs,
+- mutation reports and baselines to exact provider, scope, totals, debt, and
+  exception records,
 - evidence `source_ref` values to unique knowledge sources.
 
 Artifact and source IDs are registry-global. Evidence IDs are project-scoped
-for project, rule, and assurance artifacts, and artifact-scoped for standalone
-reports; conflicting definitions within a scope remain errors even when their
-IDs match. Mutation-baseline references remain intentionally unresolved until a
-baseline artifact exists.
+for project-connected artifacts and artifact-scoped for standalone reports;
+conflicting definitions within a scope remain errors even when IDs match.
 
-The first derivation recipe supports only
-`ARCH-DEPENDENCY-DIRECTION-001`. Greenfield business systems, legacy systems,
-and intentionally simple tools receive materially different candidate rules.
-Missing/ambiguous context produces `requires_decision`; superseded knowledge is
-not derived.
+The first rule recipe supports only `ARCH-DEPENDENCY-DIRECTION-001`.
+Greenfield business systems, legacy systems, and intentionally simple tools
+receive materially different candidate rules. Missing or ambiguous context
+produces `requires_decision`; superseded knowledge is not derived.
+
+## Change assurance and mutation trust boundaries
+
+Graph topology is evidence, not a design verdict. Available, degraded,
+unavailable, and provider-error states remain distinct. Diff-only fallback is
+explicitly limited and confidence-capped. The assurance engine derives only
+Review Levels 0–2 and makes higher risk or weaker evidence require more human
+review.
+
+The PIT parser bounds bytes, nodes, strings, mutations, actions, tests, and
+entity decoding. Provider source names are not promoted to repository paths. A
+report is complete only when an execution attestation exactly matches the
+selected assurance plan and scope. Empty, partial, timed-out, error-bearing, or
+incomparable evidence is inconclusive.
+
+Baselines are candidates until a human activates them. Accepted-risk mutation
+debt must resolve to an active, unexpired exception with human evidence.
+Equivalent mutations remain candidates until confirmed.
+
+## Generated agent guidance
+
+Instruction compilation consumes a fully validated registry at an injected
+effective date. It includes active rules and assurance policy, but deliberately
+omits evidence text, rationale, provider configuration, and other untrusted
+operational detail. All displayed identifiers, statements, and scopes are
+escaped and bounded.
+
+The assurance profile defines only a maximum human-review level. A
+change-specific assurance plan is authoritative; without one, agents must use
+conservative Level 0 review. Decisions that can affect the task are explicit
+stop points. Installation creates a missing root `AGENTS.md` atomically but
+never overwrites any existing file, including drifted generated content.
 
 ## Requirement precedence and reconciliation
 
-The attached implementation request is the controlling refinement for this
-milestone. It resolves several differences in the product documents:
+The attached implementation request controls this milestone where it refines
+the product documents:
 
-- Real GitNexus, diff review, and mutation execution remain later milestones.
-- `craft validate` and `craft inspect` replace the earlier proposed
-  `craft assurance validate` surface for this milestone.
-- The four-type observation sketch is expanded to the six types required
-  elsewhere in the brief.
-- Review Level 3 is documented as a future model but cannot appear in schema
-  version 1.
-- Uppercase enum examples are normalized to lower snake case in artifacts.
-- The target knowledge catalog sizes of 30–50, ten, and five refer to later
-  stages; the current repository has the two requested principles and one
-  current position.
-- `product_decision`, omitted from the proposed `KnowledgeMaturity` type, is
-  included. `contested` and `superseded` are modeled as lifecycle states rather
-  than source/maturity categories.
-- A mutation score may be reported as context, but cannot be the decision
-  strategy.
-
-The assurance document also contains an empty inline path in its relationship
-note. `docs/product/` is treated as canonical because both source documents
-already reside there and the implementation request names that path.
+- Real GitNexus, live diff discovery, and mutation execution remain later
+  milestones.
+- The observation sketch expands to fact, interpretation, assumption,
+  uncertainty, decision, and known debt.
+- Review Level 3 is documented only as a future model and cannot appear in
+  schema version 1.
+- Serialized enum values use lower snake case.
+- Knowledge-catalog size targets refer to later stages.
+- `product_decision` is a maturity while `contested` and `superseded` are
+  lifecycle states.
+- Mutation score is contextual only and never a decision strategy.
 
 ## Deferred boundaries
 
@@ -207,16 +238,16 @@ No generic repositories, service locators, dependency-injection container,
 event bus, plugin framework, database, ORM, broker, web framework, or deployment
 platform is present.
 
-Future package candidates become justified when their behavior exists:
+Future boundaries become justified when their behavior exists:
 
-- rule and instruction compilation,
-- fake and real code-graph adapters,
-- mutation-provider adapters and baselines,
+- a real code-graph adapter with explicit index identity and freshness evidence,
+- mutation execution behind an injectable process boundary,
 - quality-gate orchestration,
-- review policy derivation,
 - evidence-ledger persistence,
-- MCP and CI adapters.
+- MCP and source-forge adapters,
+- a separately versioned Review Level 3.
 
-The next recommended boundary is a fixture-backed code-graph provider and pure
-assurance-planning behavior. It must preserve unavailable/degraded evidence and
-must not turn graph topology into a craftsmanship verdict.
+The next recommended vertical slice is a real but read-only code-graph adapter
+with explicit index identity and freshness evidence. It must preserve
+unavailable/degraded states and must not turn graph topology into a
+craftsmanship verdict.

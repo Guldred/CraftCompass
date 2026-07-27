@@ -18,8 +18,11 @@ graphs and mutation testing.
 The domain may depend on Zod for runtime contract validation and on no other
 runtime library.
 
-Filesystem and YAML behavior belong to `apps/cli`. Future providers implement
-the minimal `CodeGraphProvider` or `MutationTestingProvider` ports using only
+YAML and application-level local-file orchestration belong to `apps/cli`.
+Concrete provider packages may own provider-specific repository or tool input
+parsing when a vertical slice requires it; ADR 0005 applies this rule to
+`packages/providers-filesystem`. Future providers implement the minimal
+`CodeGraphProvider` or `MutationTestingProvider` ports using only
 provider-neutral request and result types.
 
 Provider results must preserve:

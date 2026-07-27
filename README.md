@@ -1,136 +1,124 @@
 # CraftCompass
 
-CraftCompass is an AI-assisted software-craftsmanship and assurance system. It
-turns general engineering knowledge into context-aware project guidance,
-traceable rules, and change-specific assurance strategies.
+CraftCompass is an evidence-first software-craftsmanship and assurance system.
+It turns general engineering knowledge into contextual project rules,
+change-specific assurance plans, mutation-debt decisions, and bounded
+instructions for coding agents.
 
-The project is starting with the contracts that later integrations must honor:
-versioned knowledge, project evidence, project rules, assurance plans, mutation
-evidence, and provider-independent ports.
+The project is deliberately conservative: evidence, interpretation,
+assumptions, uncertainty, human decisions, and known debt remain distinct. A
+principle is not a project mandate until its applicability, scope, risk,
+enforcement, migration needs, and exceptions have been decided.
 
-## The problem
+## Safety and claims
 
-General principles such as dependency direction, cohesion, and testability need
-project context. A sensible boundary in a business-critical service can be
-unnecessary ceremony in a small utility. Existing code can represent intended
-architecture, accidental structure, or known debt.
-
-CraftCompass therefore keeps evidence separate from judgment and preserves:
-
-- observed facts,
-- interpretations,
-- assumptions,
-- uncertainties,
-- human decisions,
-- known technical debt.
-
-A principle becomes a project rule only after its applicability, evidence, risk,
-scope, enforcement, confidence, migration needs, and exceptions are considered.
-
-## What CraftCompass does not claim
-
-CraftCompass is not:
+CraftCompass does not claim to be:
 
 - a universal Clean Architecture or coding-style enforcer,
 - proof that requirements, security, architecture, or behavior are complete,
 - a replacement for human engineering responsibility,
-- a claim that human code review is obsolete,
+- a reason to remove human review,
 - a global mutation-score gate,
-- a GitNexus, mutation-tool, LLM, CI, or source-forge implementation.
+- a GitNexus, mutation-process, LLM, CI, or source-forge implementation.
 
-Mutation testing is modeled as evidence about whether tests detect selected
-semantic changes. The first-class policy is:
+Mutation testing is evidence that selected tests detect selected semantic
+changes. The policy is:
 
-> No new unexplained surviving mutants in changed business behavior.
+> No new unexplained surviving mutation debt in changed business behavior.
 
-Human review remains risk-based. Schema version 1 supports Review Levels 0, 1,
-and 2 only; Level 3 is deliberately not representable.
+Review is risk-based. Schema version 1 supports Levels 0–2 only. Level 3 is not
+representable.
 
-## Current working slices
+## What works today
 
-The repository now supports two usable evidence-first workflows:
+CraftCompass currently provides four connected local workflows:
 
 ```text
-repository
-  -> safe manifest inspection
+repository manifests
+  -> bounded observation
   -> evidence-linked candidate project profile
 
-artifact paths/directories
-  -> strict YAML loading and domain validation
-  -> cross-artifact reference registry
-  -> deterministic candidate rule derivation
+validated knowledge + project context
+  -> deterministic candidate project rule
+  -> bounded agent instructions after human activation
+
+change context + graph evidence
+  -> normalized impact
+  -> change-specific assurance plan and mutation scope
+
+attested PIT XML + active baseline
+  -> lossless mutation report
+  -> exact debt comparison
+  -> passed, failed, or inconclusive policy result
 ```
 
-Implemented artifacts:
+Implemented safeguards include:
 
-- craftsmanship principles and attributed practice statements,
-- evidence-aware project profiles,
-- traceable project rules,
-- assurance profiles and change-specific plans,
-- quality-gate and mutation contracts,
-- `CodeGraphProvider` and `MutationTestingProvider` ports.
+- strict, versioned Zod artifact contracts and semantic registry validation,
+- safe repository and YAML traversal with path, symlink, size, count, and depth
+  limits,
+- evidence-linked Java/Maven and TypeScript/pnpm repository observation,
+- a fixture-only fake code-graph provider with honest degraded/unavailable
+  states,
+- deterministic Review Level 0–2 assurance planning,
+- bounded, fail-closed PIT XML ingestion with semantic mutation identities,
+- plan/scope/configuration/version execution attestation,
+- candidate-only baseline creation and human-governed activation,
+- score-independent mutation policy,
+- deterministic instruction compilation that omits evidence text, rationale,
+  and provider configuration,
+- create-only atomic `AGENTS.md` installation; no existing file is overwritten.
 
-Implemented behavior:
-
-- safe, deterministic Java/Maven and TypeScript/package-manager observation,
-- honest partial profiles for malformed or unsupported repositories,
-- evidence links for every detected technology and candidate module,
-- bounded recursive YAML artifact loading with canonical input roots and no
-  traversal through artifact or descendant symlinks,
-- globally unique artifact IDs plus
-  project/principle/observation/module/source/evidence reference resolution,
-- deterministic dependency-direction candidates for greenfield, legacy,
-  intentionally simple, and undecided contexts.
-
-CraftCompass does not call an LLM, query a real code graph, execute mutation
-tools, or run quality gates yet.
+CraftCompass does not yet execute PIT, inspect a live Git diff, query GitNexus,
+run project quality gates, call an LLM, or persist an evidence ledger.
 
 ## Requirements
 
-- Node.js 22.13 or newer on a supported LTS line
-- pnpm 10.33.0 (pinned through `packageManager`)
+- Node.js 22.23.1+ or 24.18.0+ on the corresponding supported LTS line
+- pnpm 10.33.0, pinned through `packageManager`
+- Linux or macOS; hardened filesystem operations deliberately fail on Windows
+  until equivalent no-follow and atomic guarantees are implemented
 
-Corepack can activate the pinned pnpm version:
+Install and verify:
 
 ```bash
 corepack enable
+pnpm install --frozen-lockfile
+pnpm check
 ```
 
-Install dependencies:
-
-```bash
-pnpm install
-```
+`pnpm check` runs formatting, linting, strict source-and-test type checking,
+tests, and the build.
 
 ## CLI
 
-Validate a supported artifact:
+Run commands from the repository root. `pnpm craft` builds before invoking the
+CLI. After `pnpm build`, `pnpm exec craft` calls the workspace binary directly.
+
+### Artifacts and repository observation
+
+Validate or inspect one artifact:
 
 ```bash
 pnpm craft validate knowledge/principles/dependency-direction.yaml
-```
-
-Inspect a valid artifact:
-
-```bash
 pnpm craft inspect fixtures/valid/mutation-report-with-survivor.yaml
 ```
 
-Scan a repository into a candidate project profile:
+Scan a repository into a candidate profile:
 
 ```bash
 pnpm craft project scan fixtures/repositories/java-spring-service
 ```
 
-Validate a connected artifact set. Inputs may be YAML files or directories:
+Validate a connected registry. Inputs may be YAML files or directories:
 
 ```bash
 pnpm craft registry validate \
-  knowledge/principles/dependency-direction.yaml \
+  knowledge \
   fixtures/valid/java-spring-project-profile.yaml
 ```
 
-Derive a non-blocking candidate rule:
+Derive a non-blocking dependency-direction candidate:
 
 ```bash
 pnpm craft derive dependency-direction \
@@ -139,26 +127,145 @@ pnpm craft derive dependency-direction \
   fixtures/valid/java-spring-project-profile.yaml
 ```
 
-The `pnpm craft` development shortcut builds first. After `pnpm build`, the
-workspace-linked binary is also available:
+### Change-specific assurance
+
+Derive a plan from a project, assurance profile, change context, and normalized
+impact:
 
 ```bash
-pnpm exec craft validate fixtures/valid/assurance-profile.yaml
+pnpm craft assurance plan \
+  ASSURANCE-PLAN-LOCAL \
+  PROJECT-ORDER-SERVICE \
+  ASSURANCE-PROFILE-ORDER-SERVICE \
+  CHANGE-ORDER-CANCELLATION \
+  IMPACT-ORDER-CANCELLATION \
+  fixtures/valid/java-spring-project-profile.yaml \
+  fixtures/valid/assurance-profile.yaml \
+  fixtures/valid/change-context.yaml \
+  fixtures/valid/change-impact.yaml
 ```
 
-Invalid input returns a non-zero exit code and reports field paths:
+Graph centrality and clusters remain signals, not verdicts. Weak or unavailable
+graph evidence lowers confidence and preserves limitations.
+
+### Agent instructions
+
+Render instructions from a validated registry:
+
+```bash
+pnpm craft instructions render \
+  PROJECT-ORDER-SERVICE \
+  ASSURANCE-PROFILE-ORDER-SERVICE \
+  knowledge/principles/dependency-direction.yaml \
+  fixtures/valid/java-spring-project-profile.yaml \
+  fixtures/valid/assurance-profile.yaml \
+  fixtures/valid/derived-architecture-rule.yaml
+```
+
+Create a missing root `AGENTS.md`, or check it for drift:
+
+```bash
+pnpm craft instructions install \
+  ../order-service \
+  PROJECT-ORDER-SERVICE \
+  ASSURANCE-PROFILE-ORDER-SERVICE \
+  knowledge/principles/dependency-direction.yaml \
+  fixtures/valid/java-spring-project-profile.yaml \
+  fixtures/valid/assurance-profile.yaml \
+  fixtures/valid/derived-architecture-rule.yaml
+
+pnpm craft instructions check \
+  ../order-service \
+  PROJECT-ORDER-SERVICE \
+  ASSURANCE-PROFILE-ORDER-SERVICE \
+  knowledge/principles/dependency-direction.yaml \
+  fixtures/valid/java-spring-project-profile.yaml \
+  fixtures/valid/assurance-profile.yaml \
+  fixtures/valid/derived-architecture-rule.yaml
+```
+
+The target repository must already exist. Installation never overwrites an
+existing file, including a drifted CraftCompass-generated file. Review and
+reconcile changes explicitly.
+
+### Mutation assurance
+
+Importing PIT requires an existing assurance plan with mutation scope, the PIT
+tool version, a SHA-256 configuration fingerprint, and a repository-relative
+evidence location:
+
+```bash
+pnpm craft mutation import-pit \
+  MUTATION-REPORT-LOCAL \
+  ASSURANCE-PLAN-ORDER-CANCELLATION \
+  1.25.3 \
+  sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  target/pit-reports/execution-configuration.json \
+  fixtures/pitest/valid/all-killed.xml \
+  fixtures/valid/java-spring-project-profile.yaml \
+  fixtures/valid/assurance-profile.yaml \
+  fixtures/valid/change-assurance-plan.yaml
+```
+
+The import attests that the supplied XML belongs to that exact plan, scope, and
+configuration. CraftCompass does not independently execute or verify the PIT
+process yet.
+
+Create an inert baseline candidate:
+
+```bash
+pnpm craft mutation baseline create \
+  MUTATION-BASELINE-LOCAL \
+  fixtures/valid/mutation-report-with-survivor.yaml
+```
+
+Only a separately reviewed artifact with human activation evidence can become
+an active baseline. Evaluate a report against one:
+
+```bash
+pnpm craft mutation evaluate \
+  MUTATION-REPORT-ALL-KILLED \
+  MUTATION-BASELINE-ORDER-DOMAIN-ACTIVE \
+  ASSURANCE-PROFILE-ORDER-SERVICE \
+  fixtures/valid/java-spring-project-profile.yaml \
+  fixtures/valid/assurance-profile.yaml \
+  fixtures/valid/change-assurance-plan.yaml \
+  fixtures/valid/mutation-report-all-killed.yaml \
+  fixtures/valid/mutation-baseline-active.yaml
+```
+
+Exit code `0` means passed. Failed and inconclusive results both return non-zero
+and include stable reason codes. Evaluation requires a complete connected
+registry, including the current plan and the active baseline's source report.
+Missing, candidate, superseded, incomparable, partial, empty, timeout-bearing,
+or error-bearing evidence is inconclusive.
+
+## Repository shape
 
 ```text
-$.observations[0].confidence: Confidence must be at most 1 [too_big]
+.
+├── apps/
+│   └── cli/
+├── packages/
+│   ├── assurance-engine/
+│   ├── domain/
+│   ├── instruction-compiler/
+│   ├── mutation-engine/
+│   ├── providers-filesystem/
+│   └── providers-pitest/
+├── knowledge/
+├── fixtures/
+├── docs/
+│   ├── architecture/
+│   ├── decisions/
+│   └── product/
+└── .github/
 ```
 
-After building, the compiled executable can be run directly:
+The domain imports no filesystem, YAML, process, provider SDK, LLM, CI, or
+source-forge implementation. Adapters depend inward on domain contracts.
 
-```bash
-node apps/cli/dist/main.js validate fixtures/valid/assurance-profile.yaml
-```
-
-## Quality commands
+## Development
 
 ```bash
 pnpm format
@@ -169,43 +276,11 @@ pnpm build
 pnpm check
 ```
 
-`pnpm check` runs formatting, linting, strict source-and-test type checking,
-tests, and the build. Tests use explicit assertions rather than snapshots for
-important domain behavior.
+Important behavior uses explicit assertions rather than snapshots. New
+provider input needs bounded parsing, hostile fixtures, and visible degraded
+behavior. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
-## Repository shape
-
-```text
-.
-├── apps/
-│   └── cli/                  # Filesystem, YAML, terminal, and exit-code adapter
-├── packages/
-│   ├── domain/               # Pure contracts, registry, and derivation
-│   └── providers-filesystem/ # Safe repository observation adapter
-├── knowledge/
-│   ├── current-positions/
-│   └── principles/
-├── fixtures/
-│   ├── invalid/
-│   └── valid/
-└── docs/
-    ├── architecture/
-    ├── decisions/
-    └── product/
-```
-
-The runtime dependency direction is:
-
-```text
-CLI -> providers-filesystem -> domain -> Zod
-CLI ------------------------> domain
-```
-
-The CLI owns artifact-file traversal and YAML. The filesystem provider owns
-repository paths, manifest reading, and structural XML/JSON parsing. The domain
-imports neither.
-
-## Architecture documentation
+## Architecture and decisions
 
 - [Architecture](docs/architecture/architecture.md)
 - [Domain model](docs/architecture/domain-model.md)
@@ -215,22 +290,18 @@ imports neither.
 - [ADR 0003: Knowledge maturity separation](docs/decisions/0003-knowledge-maturity-separation.md)
 - [ADR 0004: No global mutation score](docs/decisions/0004-no-global-mutation-score.md)
 - [ADR 0005: Evidence-first repository observation](docs/decisions/0005-evidence-first-repository-observation.md)
-- [ADR 0006: Unreleased schema refinement and deterministic adaptation](docs/decisions/0006-unreleased-v1-and-deterministic-adaptation.md)
+- [ADR 0006: Deterministic adaptation](docs/decisions/0006-unreleased-v1-and-deterministic-adaptation.md)
+- [ADR 0007: Graph-backed assurance planning](docs/decisions/0007-graph-backed-assurance-planning.md)
+- [ADR 0008: Attested mutation assurance](docs/decisions/0008-attested-mutation-assurance.md)
+- [ADR 0009: Deterministic agent instructions](docs/decisions/0009-deterministic-agent-instructions.md)
 
 ## Deferred work
 
-The next slice exercises change-impact behavior through a deterministic fake
-code-graph provider before a real GitNexus integration.
-
-Also deferred:
-
-- repository and Git diff analysis,
-- fake and real code-graph providers,
-- broader project-rule derivation and generated instructions,
-- mutation report adapters and baseline comparison behavior,
-- quality-gate orchestration and evidence ledgers,
-- MCP, CI, GitHub, and GitLab adapters,
-- Review Level 3.
+The next recommended slice is a read-only real code-graph adapter with explicit
+index identity and freshness evidence. Later work includes mutation execution
+behind an injectable process boundary, quality-gate orchestration,
+evidence-ledger persistence, source-forge/MCP adapters, broader providers, and
+a separately versioned Review Level 3.
 
 ## License
 
