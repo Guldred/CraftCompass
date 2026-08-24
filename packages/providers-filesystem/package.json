@@ -15,7 +15,7 @@
   ],
   "dependencies": {
     "@craftcompass/domain": "workspace:*",
-    "fast-xml-parser": "5.10.1",
-    "fast-xml-validator": "1.4.0"
+    "fast-xml-parser": "5.11.0",
+    "fast-xml-validator": "1.4.2"
   }
 }
