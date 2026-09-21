@@ -22,12 +22,12 @@
   "devDependencies": {
     "@craftcompass/cli": "workspace:*",
     "@eslint/js": "10.0.1",
-    "@types/node": "22.20.1",
-    "esbuild": "0.28.1",
-    "eslint": "10.8.0",
-    "prettier": "3.9.6",
-    "typescript": "6.0.3",
-    "typescript-eslint": "8.65.0",
-    "vitest": "4.1.10"
+    "@types/node": "26.6.1",
+    "esbuild": "0.28.2",
+    "eslint": "10.10.0",
+    "prettier": "3.9.8",
+    "typescript": "7.0.2",
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.1"
   }
 }
